@@ -1,0 +1,13 @@
+[package]
+name = "server_interface"
+version = "0.1.0"
+authors = ["Lennart Kudling"]
+edition = "2021"
+
+[dependencies]
+tonic = { workspace = true }
+prost = { workspace = true }
+tokio = { workspace = true }
+
+[build-dependencies]
+tonic-build = "0.9.2"

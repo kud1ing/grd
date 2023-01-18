@@ -1,18 +1,27 @@
 # grd
 
-A minimal stream processing grid software using [gRPC](https://grpc.io/) and
-[Protocol Buffers 3](https://developers.google.com/protocol-buffers/docs/proto3).
+A simple computational grid server, using [tonic](https://github.com/hyperium/tonic) ([gRPC](https://grpc.io/) and
+[Protocol Buffers 3](https://developers.google.com/protocol-buffers/docs/proto3)).
 
-While the client and server are written in [Rust](https://www.rust-lang.org), clients and workers can be implemented
+While the server is written in [Rust](https://www.rust-lang.org), clients and workers can be implemented
 in any language:
-* a C API is provided
-* bring your own serialization format: the job data and result data are raw bytes
+* bring your own serialization format: the job data and result data are exchanged as raw bytes
+* a Python client and worker is provided (using [PyO3](https://pyo3.rs))
+
+## Compilation dependencies
+
+See tonic's [dependencies](https://github.com/hyperium/tonic#dependencies)
 
 ## Backlog
 
-* [ ] create C++ client
-* [ ] expose an async Python Client?
+* [ ] add a `app_worker`
+* [ ] `client_cpp`: create a sync C++ client
+  * [ ] how to check-in/distribute the generated `.cc` and `.h` files?
+  * [ ] expose `SyncGridClient`'s methods
+    * https://cxx.rs/extern-rust.html#methods
+* [ ] expose an async Python Client
   * https://pyo3.rs/v0.13.2/ecosystem/async-await.html#awaiting-a-rust-future-in-python
-* [ ] provide binaries via GitHub actions:
-  * https://alican.codes/rust-github-actions
-  * https://github.com/BurntSushi/ripgrep/blob/master/.github/workflows/release.yml
+* [ ] `client_cpp`: create a async C++ client
+* Release building:
+  * [ ] is currently not triggered by pushing a tag
+  * [ ] `release.yml`: `${{ env.GRD_VERSION }}` and `${{ env.RUNNER_OS }}` are empty and thus currently hardcoded

@@ -1,0 +1,16 @@
+[package]
+name = "grid-server"
+version = "0.1.0"
+authors = ["Lennart Kudling"]
+edition = "2021"
+
+[dependencies]
+env_logger = { workspace = true }
+log = { workspace = true }
+server_interface = { path= "../lib_grid_server_interface" }
+tonic = { workspace = true }
+prost = { workspace = true }
+tokio = { workspace = true }
+
+[build-dependencies]
+tonic-build = "0.9.2"
