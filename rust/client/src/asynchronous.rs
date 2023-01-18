@@ -1,10 +1,12 @@
 use server_interface::{
     ClientId, GridClient, JobFetchRequest, JobFetchResponse, JobSubmitRequest, JobSubmitResponse,
-    ResultFetchRequest, ResultFetchResponse, ResultSubmitRequest, ResultSubmitResponse, ServiceId,
-    ServiceVersion,
+    RegisterClientRequest, ResultFetchRequest, ResultFetchResponse, ResultSubmitRequest,
+    ResultSubmitResponse, ServiceId, ServiceVersion,
 };
 use tonic::transport::Channel;
 use tonic::{Request, Response, Status};
+#[cfg(not(target_os = "windows"))]
+use users::{get_current_uid, get_user_by_uid};
 
 ///
 pub struct AsyncGridClient {
@@ -13,18 +15,45 @@ pub struct AsyncGridClient {
 }
 
 ///
+fn client_hostname() -> Option<String> {
+    hostname::get().ok()?.into_string().ok()
+}
+
+///
+#[cfg(target_os = "windows")]
+fn user_name() -> Option<String> {
+    // TODO
+    println!("TODO: `user_name()` on windows");
+    Some("".to_string())
+}
+
+///
+#[cfg(not(target_os = "windows"))]
+fn user_name() -> Option<String> {
+    let user = get_user_by_uid(get_current_uid())?;
+
+    Some(user.name().to_str()?.to_string())
+}
+
+///
 pub async fn connect_async_grid_client(
     host_name: &str,
     port: u32,
+    client_name: String,
 ) -> Result<AsyncGridClient, Box<dyn std::error::Error>> {
-    let grid_client = GridClient::connect(format!("http://{}:{}", host_name, port)).await?;
+    let mut grid_client = GridClient::connect(format!("http://{}:{}", host_name, port)).await?;
 
-    // TODO
-    println!("TODO `connect_async_grid_client()`: request a client ID");
-    let client_id = 0;
+    // Register the client with the server.
+    let register_client_response = grid_client
+        .register_client(Request::new(RegisterClientRequest {
+            host_name: client_hostname().unwrap_or_default().to_lowercase(),
+            user_name: user_name().unwrap_or_default().to_lowercase(),
+            client_name,
+        }))
+        .await?;
 
     Ok(AsyncGridClient {
-        client_id,
+        client_id: register_client_response.get_ref().client_id,
         grid_client,
     })
 }

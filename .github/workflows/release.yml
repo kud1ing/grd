@@ -1,0 +1,71 @@
+on:
+  release:
+    types: [created]
+
+jobs:
+  create-release:
+    name: create-release
+    runs-on: ubuntu-22.04
+    outputs:
+      upload_url: ${{ steps.release.outputs.upload_url }}
+      grd_version: ${{ env.GRD_VERSION }}
+    steps:
+      - name: Get the release version from the tag
+        shell: bash
+        if: env.GRD_VERSION == ''
+        run: |
+          echo "GRD_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo "version is: ${{ env.GRD_VERSION }}"
+      - name: Create GitHub release
+        id: release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.GRD_VERSION }}
+          release_name: ${{ env.GRD_VERSION }}
+
+  build-release:
+    name: Release ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@master
+      - uses: arduino/setup-protoc@v1
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --manifest-path rust/Cargo.toml
+
+      - name: Build archive
+        shell: bash
+        run: |
+          staging="grd-${{ needs.create-release.outputs.grd_version }}-${{ matrix.target }}"
+          mkdir -p "$staging"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp "rust/target/release/grid-server.exe" "$staging/"
+            cp "rust/target/release/grid.dll" "$staging/grd.pyd"
+            7z a "$staging.zip" "$staging"
+            echo "ASSET=$staging.zip" >> $GITHUB_ENV
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            cp "rust/target/release/grid-server" "$staging/"
+            cp "rust/target/release/libgrid.dylib" "$staging/grid.pyd"
+            tar czf "$staging.tar.gz" "$staging"
+            echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
+          else
+            cp "rust/target/release/grid-server" "$staging/"
+            cp "rust/target/release/libgrid.so" "$staging/grid.so"
+            tar czf "$staging.tar.gz" "$staging"
+            echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Upload release archive
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ASSET }}
+          asset_name: ${{ env.ASSET }}
+          asset_content_type: application/octet-stream

@@ -4,6 +4,8 @@ use server_interface::{
     ResultFetchResponse, ResultSubmitRequest, ResultSubmitResponse, ServiceId, ServiceVersion,
 };
 use std::collections::{HashMap, VecDeque};
+use std::env::args;
+use std::process::exit;
 use std::sync::Mutex;
 use tonic::{transport::Server, Request, Response, Status};
 
@@ -36,8 +38,8 @@ impl Grid for GridServerImpl {
         &self,
         _request: Request<RegisterClientRequest>,
     ) -> Result<Response<RegisterClientResponse>, Status> {
-        // TODO
-        println!("TODO: `register_client()`: grant or deny a client ID according to the request");
+        // TODO: Grant or deny a client ID according to the request.
+        println!("TODO: `register_client()`: grant or deny a client ID according to the request.");
 
         let mut next_client_id = self.next_client_id.lock().unwrap();
 
@@ -133,17 +135,15 @@ impl Grid for GridServerImpl {
                 .client_id_per_job_id
                 .lock()
                 .unwrap()
-                .get(&result.job_id)
+                .remove(&result.job_id)
             {
                 // Collect the given result for the client ID.
                 self.results_per_client_id
                     .lock()
                     .unwrap()
-                    .entry(*client_id)
+                    .entry(client_id)
                     .or_default()
                     .push(result.clone());
-
-                // TODO: Remove the job ID from `self.client_id_per_job_id`.
             }
             // There is no client ID for the given job ID.
             else {
@@ -181,13 +181,31 @@ impl Grid for GridServerImpl {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // TODO
-    println!("TODO: `main()`: get the port from the command line");
-    let port = 50051;
+    // Get the given command line arguments.
+    let command_line_arguments: Vec<_> = args().collect();
 
-    let socket_address = format!("[::1]:{}", port).parse()?;
+    // Too few command line arguments are given.
+    if command_line_arguments.len() < 2 {
+        eprintln!("Please pass the port.");
+        exit(-1);
+    }
 
-    println!("Starting the server on port {} ...", port);
+    // Get the port as a string from the command line arguments,
+    let port_string = &command_line_arguments[1];
+
+    // Try to parse the given port as a number.
+    let port_number = match port_string.parse::<u32>().ok() {
+        None => {
+            eprintln!("Can not parse the port as a number.");
+            exit(-1);
+        }
+        Some(port_number) => port_number,
+    };
+
+    // Build the sockets address from hostname and port.
+    let socket_address = format!("[::1]:{}", port_number).parse()?;
+
+    println!("Starting the server on port {} ...", port_number);
 
     Server::builder()
         .add_service(GridServer::new(GridServerImpl::new()))

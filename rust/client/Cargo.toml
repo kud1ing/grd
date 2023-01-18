@@ -5,10 +5,14 @@ authors = ["Lennart Kudling"]
 edition = "2021"
 
 [dependencies]
+hostname = "0.3.1"
+prost = "0.11.6"
 server_interface = { path= "../server_interface" }
 tonic = "0.8.3"
-prost = "0.11.6"
 tokio = { version = "1.18", features = ["macros", "rt-multi-thread"] }
+
+[target.'cfg(not(target_os="windows"))'.dependencies]
+users = "0.11"
 
 [build-dependencies]
 tonic-build = "0.8.4"

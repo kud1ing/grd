@@ -2,6 +2,7 @@
 
 members = [
     "client",
+    "client_cpp",
     "client_python",
     "server",
     "server_interface",

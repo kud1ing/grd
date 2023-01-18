@@ -3,7 +3,7 @@ use server_interface::{
     JobFetchResponse, JobSubmitResponse, ResultFetchResponse, ResultSubmitResponse, ServiceId,
     ServiceVersion,
 };
-use tokio::runtime::Runtime;
+use tokio::runtime::{Builder, Runtime};
 use tonic::{Response, Status};
 
 ///
@@ -16,17 +16,17 @@ pub struct SyncGridClient {
 pub fn connect_sync_grid_client(
     host_name: &str,
     port: u32,
+    client_name: String,
 ) -> Result<SyncGridClient, Box<dyn std::error::Error>> {
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?;
+    let async_runtime = Builder::new_multi_thread().enable_all().build()?;
 
-    // Connect the server_interface client.
-    let asynchronous_grid_client = runtime.block_on(connect_async_grid_client(host_name, port))?;
+    // Connect the grid client.
+    let async_grid_client =
+        async_runtime.block_on(connect_async_grid_client(host_name, port, client_name))?;
 
     Ok(SyncGridClient {
-        async_grid_client: asynchronous_grid_client,
-        async_runtime: runtime,
+        async_grid_client,
+        async_runtime,
     })
 }
 
