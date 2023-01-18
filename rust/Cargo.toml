@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "client",
+    "client_python",
+    "server",
+    "server_interface",
+]

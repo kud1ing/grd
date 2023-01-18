@@ -1,0 +1,17 @@
+[package]
+name = "client_python"
+version = "0.1.0"
+authors = ["Lennart Kudling"]
+edition = "2021"
+
+[lib]
+name = "grid"
+crate-type = ["cdylib"]
+
+[dependencies]
+client = { path= "../client" }
+pyo3 = { version = "0.18.0", features = ["extension-module"] }
+server_interface = { path= "../server_interface" }
+
+[build-dependencies]
+pyo3-build-config = "0.18.0"
