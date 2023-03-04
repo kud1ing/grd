@@ -1,5 +1,6 @@
 # Grid Python Client
 
-* on macOS, rename `libgrid.dylib` to `grid.so`
-* on Windows, rename `grid.dll` to `grid.pyd`
-* on Linux, rename `libgrid.so` to `grid.so`
+After compilation, rename:
+* on macOS: `libgrid.dylib` to `grid.so`
+* on Windows: `grid.dll` to `grid.pyd`
+* on Linux: `libgrid.so` to `grid.so`
