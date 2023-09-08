@@ -16,13 +16,11 @@ service_version = 0
 result = None
 
 while True:
-    if result is not None:
-        result = pickle.dumps(result)
-
     # Fetch a job and maybe send a result.
     job = grid_client.worker_server_exchange(service_id, service_version, result)
 
     if not job:
+        result = None
         time.sleep(1.0)
         continue
 
@@ -30,5 +28,7 @@ while True:
 
     # Process the job.
     result = job_data["a"] + job_data["b"]
+
+    result = Result(job.job_id, pickle.dumps(result))
 
 print("Done.")

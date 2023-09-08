@@ -1,7 +1,8 @@
 use server_interface::{
-    ClientId, GridClient, JobQuery, JobSubmitRequest, JobSubmitResponse, RegisterClientRequest,
-    ResultFetchRequest, ResultFetchResponse, ResultSubmitRequest, ResultSubmitResponse, ServiceId,
-    ServiceVersion, WorkerServerExchangeRequest, WorkerServerExchangeResponse,
+    ClientId, GridClient, JobId, JobQuery, JobSubmitRequest, JobSubmitResponse,
+    RegisterClientRequest, ResultFetchRequest, ResultFetchResponse, ResultSubmitRequest,
+    ResultSubmitResponse, ServiceId, ServiceVersion, WorkerServerExchangeRequest,
+    WorkerServerExchangeResponse,
 };
 use tonic::transport::Channel;
 use tonic::{Request, Response, Status};
@@ -105,10 +106,12 @@ impl AsyncGridClient {
     ///
     pub async fn submit_result(
         &mut self,
-        result: Option<server_interface::Result>,
+        result: server_interface::Result,
     ) -> Result<Response<ResultSubmitResponse>, Status> {
         self.grid_client
-            .submit_result(Request::new(ResultSubmitRequest { result }))
+            .submit_result(Request::new(ResultSubmitRequest {
+                result: Some(result),
+            }))
             .await
     }
 }

@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate log;
 
+use server_interface::server_interface::{StatusRequest, StatusRequestResponse};
 use server_interface::{
     ClientId, Grid, GridServer, Job, JobId, JobSubmitRequest, JobSubmitResponse,
     RegisterClientRequest, RegisterClientResponse, ResultFetchRequest, ResultFetchResponse,
@@ -43,16 +44,17 @@ impl GridServerImpl {
     ///
     fn add_result(&self, result: &server_interface::Result) {
         let job_id = result.job_id;
+        let maybe_client_id_for_job_id = self.client_id_per_job_id.lock().unwrap().remove(&job_id);
 
         // There is a client ID for the given job ID.
-        if let Some(client_id) = self.client_id_per_job_id.lock().unwrap().remove(&job_id) {
-            info!("Accepting result for job ID {job_id} from client {client_id}");
+        if let Some(client_id_for_job_id) = maybe_client_id_for_job_id {
+            info!("Accepting result for job with ID {job_id} from client {client_id_for_job_id}");
 
             // Collect the given result for the client ID.
             self.results_per_client_id
                 .lock()
                 .unwrap()
-                .entry(client_id)
+                .entry(client_id_for_job_id)
                 .or_default()
                 .push(result.clone());
         }
@@ -117,10 +119,10 @@ impl Grid for GridServerImpl {
 
         // Collect the job from the given request.
         {
+            let job_submit_request = job_submit_request.get_ref();
+
             let mut jobs_per_service_id_and_version =
                 self.jobs_per_service_id_and_version.lock().unwrap();
-
-            let job_submit_request = job_submit_request.get_ref();
 
             // Add the given job data for the given service type and version.
             jobs_per_service_id_and_version
@@ -144,12 +146,17 @@ impl Grid for GridServerImpl {
     ) -> Result<Response<WorkerServerExchangeResponse>, Status> {
         let job_fetch_request = job_fetch_request.get_ref();
 
-        // Try to get jobs for the given request.
         {
-            let mut jobs_per_service_id_and_version =
-                self.jobs_per_service_id_and_version.lock().unwrap();
+            // There is a result from the worker.
+            if let Some(result_from_worker) = &job_fetch_request.result_from_worker {
+                self.add_result(&result_from_worker);
+            }
 
+            // Try to get jobs for the given request.
             if let Some(query_job_from_server) = &job_fetch_request.query_job_from_server {
+                let mut jobs_per_service_id_and_version =
+                    self.jobs_per_service_id_and_version.lock().unwrap();
+
                 // There are jobs for the given service type.
                 if let Some(jobs_per_service_version) =
                     jobs_per_service_id_and_version.get_mut(&query_job_from_server.service_id)
@@ -162,7 +169,7 @@ impl Grid for GridServerImpl {
                         if let Some(job) = jobs.pop_front() {
                             let job_id = job.job_id;
 
-                            info!("Sending {job_id} to worker");
+                            info!("Sending job with ID {job_id} to worker");
 
                             return Ok(Response::new(WorkerServerExchangeResponse {
                                 job: Some(job),
@@ -170,11 +177,6 @@ impl Grid for GridServerImpl {
                         }
                     }
                 }
-            }
-
-            // There is a result from the worker.
-            if let Some(result_from_worker) = &job_fetch_request.result_from_worker {
-                self.add_result(&result_from_worker);
             }
         }
 
@@ -200,22 +202,34 @@ impl Grid for GridServerImpl {
         result_fetch_request: Request<ResultFetchRequest>,
     ) -> Result<Response<ResultFetchResponse>, Status> {
         let result_fetch_request = result_fetch_request.get_ref();
-
         let client_id = result_fetch_request.client_id;
 
-        // There are results for the given client ID.
-        if let Some(results) = self
+        let maybe_results = self
             .results_per_client_id
             .lock()
             .unwrap()
-            .remove(&client_id)
-        {
+            .remove(&client_id);
+
+        // There are results for the given client ID.
+        if let Some(results) = maybe_results {
             info!("Sending results to client {client_id}");
 
             return Ok(Response::new(ResultFetchResponse { results }));
         }
 
         Ok(Response::new(ResultFetchResponse { results: vec![] }))
+    }
+
+    async fn request_status(
+        &self,
+        request: Request<StatusRequest>,
+    ) -> Result<Response<StatusRequestResponse>, Status> {
+        let mut status = HashMap::new();
+
+        // TODO
+        //status.insert("", format!("", self.))
+
+        Ok(Response::new(StatusRequestResponse { status }))
     }
 }
 

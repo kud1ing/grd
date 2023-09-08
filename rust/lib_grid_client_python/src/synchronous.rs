@@ -85,10 +85,10 @@ impl SyncGridClient {
     }
 
     ///
-    pub(crate) fn submit_result(&mut self, result: Option<Result>) -> PyResult<()> {
+    pub(crate) fn submit_result(&mut self, result: Result) -> PyResult<()> {
         match self
             .sync_grid_client
-            .submit_result(result.map(interface_result_from_result))
+            .submit_result(interface_result_from_result(result))
         {
             Ok(_) => Ok(()),
             Err(error) => Err(PyTypeError::new_err(format!(

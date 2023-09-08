@@ -14,7 +14,15 @@ See tonic's [dependencies](https://github.com/hyperium/tonic#dependencies)
 
 ## Backlog
 
+* [ ] implement `server::request_status()`
+  * https://protobuf.dev/programming-guides/proto3/#maps 
+  * [ ] number of jobs
+  * [ ] number of results
+  * [ ] connected clients
+* [ ] add a `app_control`
 * [ ] add a `app_worker`
+* [ ] `WorkerServerExchangeResponse`: add commands to the worker
+  * https://protobuf.dev/programming-guides/enum/
 * [ ] `client_cpp`: create a sync C++ client
   * [ ] how to check-in/distribute the generated `.cc` and `.h` files?
   * [ ] expose `SyncGridClient`'s methods
