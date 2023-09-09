@@ -1,5 +1,5 @@
 [package]
-name = "server_interface"
+name = "grid_server_interface"
 version = "0.1.0"
 authors = ["Lennart Kudling"]
 edition = "2021"

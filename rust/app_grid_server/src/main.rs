@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate log;
 
-use server_interface::server_interface::{StatusRequest, StatusRequestResponse};
-use server_interface::{
+use grid_server_interface::grid_server_interface::{StatusRequest, StatusResponse};
+use grid_server_interface::{
     ClientId, Grid, GridServer, Job, JobId, JobSubmitRequest, JobSubmitResponse,
     RegisterClientRequest, RegisterClientResponse, ResultFetchRequest, ResultFetchResponse,
     ResultSubmitRequest, ResultSubmitResponse, ServiceId, ServiceVersion,
@@ -26,7 +26,7 @@ pub struct GridServerImpl {
     /// The next job ID.
     next_job_id: Mutex<JobId>,
     /// Results per client ID.
-    results_per_client_id: Mutex<HashMap<ClientId, Vec<server_interface::Result>>>,
+    results_per_client_id: Mutex<HashMap<ClientId, Vec<grid_server_interface::Result>>>,
 }
 
 impl GridServerImpl {
@@ -42,7 +42,7 @@ impl GridServerImpl {
     }
 
     ///
-    fn add_result(&self, result: &server_interface::Result) {
+    fn add_result(&self, result: &grid_server_interface::Result) {
         let job_id = result.job_id;
         let maybe_client_id_for_job_id = self.client_id_per_job_id.lock().unwrap().remove(&job_id);
 
@@ -220,16 +220,18 @@ impl Grid for GridServerImpl {
         Ok(Response::new(ResultFetchResponse { results: vec![] }))
     }
 
-    async fn request_status(
+    async fn get_status(
         &self,
         request: Request<StatusRequest>,
-    ) -> Result<Response<StatusRequestResponse>, Status> {
+    ) -> Result<Response<StatusResponse>, Status> {
         let mut status = HashMap::new();
 
-        // TODO
+        // TODO: jobs in queue
+        // TODO: results in queue
+        // TODO: connected clients
         //status.insert("", format!("", self.))
 
-        Ok(Response::new(StatusRequestResponse { status }))
+        Ok(Response::new(StatusResponse { status }))
     }
 }
 

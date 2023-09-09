@@ -1,5 +1,5 @@
 [package]
-name = "client_python"
+name = "grid_client_python"
 version = "0.1.0"
 authors = ["Lennart Kudling"]
 edition = "2021"
@@ -9,10 +9,10 @@ name = "grid"
 crate-type = ["cdylib"]
 
 [dependencies]
-client = { path= "../lib_grid_client" }
+grid_client = { path= "../lib_grid_client" }
 pyo3 = { version = "0.19.1", features = ["extension-module"] }
 pyo3-asyncio = { version = "0.19.0", features = ["attributes", "tokio-runtime"] }
-server_interface = { path= "../lib_grid_server_interface" }
+grid_server_interface = { path= "../lib_grid_server_interface" }
 tokio = "1.9"
 
 [build-dependencies]

@@ -1,4 +1,4 @@
-use server_interface::{
+use grid_server_interface::{
     ClientId, GridClient, JobId, JobQuery, JobSubmitRequest, JobSubmitResponse,
     RegisterClientRequest, ResultFetchRequest, ResultFetchResponse, ResultSubmitRequest,
     ResultSubmitResponse, ServiceId, ServiceVersion, WorkerServerExchangeRequest,
@@ -90,7 +90,7 @@ impl AsyncGridClient {
         &mut self,
         service_id: ServiceId,
         service_version: ServiceVersion,
-        result_from_worker: Option<server_interface::Result>,
+        result_from_worker: Option<grid_server_interface::Result>,
     ) -> Result<Response<WorkerServerExchangeResponse>, Status> {
         self.grid_client
             .worker_server_exchange(Request::new(WorkerServerExchangeRequest {
@@ -106,7 +106,7 @@ impl AsyncGridClient {
     ///
     pub async fn submit_result(
         &mut self,
-        result: server_interface::Result,
+        result: grid_server_interface::Result,
     ) -> Result<Response<ResultSubmitResponse>, Status> {
         self.grid_client
             .submit_result(Request::new(ResultSubmitRequest {

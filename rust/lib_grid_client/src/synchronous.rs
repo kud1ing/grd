@@ -1,5 +1,5 @@
 use crate::{connect_async_grid_client, AsyncGridClient};
-use server_interface::{
+use grid_server_interface::{
     JobId, JobSubmitResponse, ResultFetchResponse, ResultSubmitResponse, ServiceId, ServiceVersion,
     WorkerServerExchangeResponse,
 };
@@ -55,7 +55,7 @@ impl SyncGridClient {
         &mut self,
         service_id: ServiceId,
         service_version: ServiceVersion,
-        result_from_worker: Option<server_interface::Result>,
+        result_from_worker: Option<grid_server_interface::Result>,
     ) -> Result<Response<WorkerServerExchangeResponse>, Status> {
         self.async_runtime
             .block_on(self.async_grid_client.worker_server_exchange(
@@ -68,7 +68,7 @@ impl SyncGridClient {
     ///
     pub fn submit_result(
         &mut self,
-        result: server_interface::Result,
+        result: grid_server_interface::Result,
     ) -> Result<Response<ResultSubmitResponse>, Status> {
         self.async_runtime
             .block_on(self.async_grid_client.submit_result(result))

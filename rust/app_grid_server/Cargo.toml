@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 env_logger = { workspace = true }
 log = { workspace = true }
-server_interface = { path= "../lib_grid_server_interface" }
+grid_server_interface = { path= "../lib_grid_server_interface" }
 tonic = { workspace = true }
 prost = { workspace = true }
 tokio = { workspace = true }

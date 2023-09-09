@@ -1,14 +1,14 @@
 use crate::{
     interface_result_from_result, job_from_interface_job, result_from_interface_result, Job, Result,
 };
-use client::connect_sync_grid_client;
+use grid_client::connect_sync_grid_client;
+use grid_server_interface::{JobId, ServiceId, ServiceVersion};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use server_interface::{JobId, ServiceId, ServiceVersion};
 
 #[pyclass]
 pub(crate) struct SyncGridClient {
-    sync_grid_client: client::SyncGridClient,
+    sync_grid_client: grid_client::SyncGridClient,
 }
 
 #[pymethods]

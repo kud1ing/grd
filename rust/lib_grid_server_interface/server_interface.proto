@@ -76,7 +76,7 @@ message ResultFetchResponse {
 message StatusRequest {
 }
 
-message StatusRequestResponse {
+message StatusResponse {
   map<string, string> status = 1;
 }
 
@@ -88,5 +88,5 @@ service Grid {
   rpc WorkerServerExchange (WorkerServerExchangeRequest) returns (WorkerServerExchangeResponse);
   rpc SubmitResult (ResultSubmitRequest) returns (ResultSubmitResponse);
   rpc FetchResults (ResultFetchRequest) returns (ResultFetchResponse);
-  rpc RequestStatus (StatusRequest) returns (StatusRequestResponse);
+  rpc GetStatus (StatusRequest) returns (StatusResponse);
 }

@@ -1,5 +1,5 @@
 [package]
-name = "client"
+name = "grid_client"
 version = "0.1.0"
 authors = ["Lennart Kudling"]
 edition = "2021"
@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 hostname = "0.3.1"
 prost = { workspace = true }
-server_interface = { path= "../lib_grid_server_interface" }
+grid_server_interface = { path= "../lib_grid_server_interface" }
 tonic = { workspace = true }
 tokio = { workspace = true }
 

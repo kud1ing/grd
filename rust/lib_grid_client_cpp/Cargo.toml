@@ -1,12 +1,12 @@
 [package]
-name = "client_cpp"
+name = "grid_client_cpp"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-client = { path= "../lib_grid_client" }
+grid_client = { path= "../lib_grid_client" }
 cxx = "1.0"
-server_interface = { path= "../lib_grid_server_interface" }
+grid_server_interface = { path= "../lib_grid_server_interface" }
 
 [build-dependencies]
 cxx-build = "1.0"

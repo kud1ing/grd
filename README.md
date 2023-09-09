@@ -15,12 +15,13 @@ See tonic's [dependencies](https://github.com/hyperium/tonic#dependencies)
 ## Backlog
 
 * [ ] implement `server::request_status()`
-  * https://protobuf.dev/programming-guides/proto3/#maps 
   * [ ] number of jobs
   * [ ] number of results
   * [ ] connected clients
-* [ ] add a `app_control`
-* [ ] add a `app_worker`
+* [ ] implement `app_control`
+* [ ] implement `app_worker`
+* [ ] create `lib_service_function` to support C-function based service libraries
+  * http://kmdouglass.github.io/posts/a-simple-plugin-interface-for-the-rust-ffi/
 * [ ] `WorkerServerExchangeResponse`: add commands to the worker
   * https://protobuf.dev/programming-guides/enum/
 * [ ] `client_cpp`: create a sync C++ client

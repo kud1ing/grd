@@ -1,0 +1,7 @@
+[package]
+name = "grid-control"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+grid_client = { path= "../lib_grid_client" }

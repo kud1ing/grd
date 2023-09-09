@@ -2,9 +2,9 @@ mod asynchronous;
 mod synchronous;
 
 use crate::synchronous::SyncGridClient;
+use grid_server_interface::JobId;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use server_interface::JobId;
 
 #[pyclass]
 struct Job {
@@ -13,7 +13,7 @@ struct Job {
 }
 
 ///
-fn job_from_interface_job(interface_job: server_interface::Job) -> Job {
+fn job_from_interface_job(interface_job: grid_server_interface::Job) -> Job {
     Job {
         job_data: interface_job.job_data,
         job_id: interface_job.job_id,
@@ -64,15 +64,15 @@ impl Result {
 }
 
 ///
-fn interface_result_from_result(result: Result) -> server_interface::Result {
-    server_interface::Result {
+fn interface_result_from_result(result: Result) -> grid_server_interface::Result {
+    grid_server_interface::Result {
         job_id: result.job_id,
         result_data: result.result_data,
     }
 }
 
 ///
-fn result_from_interface_result(interface_result: server_interface::Result) -> Result {
+fn result_from_interface_result(interface_result: grid_server_interface::Result) -> Result {
     Result {
         job_id: interface_result.job_id,
         result_data: interface_result.result_data,
