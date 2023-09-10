@@ -71,6 +71,51 @@ impl GridServerImpl {
 /// The implementation of the server interface for the server.
 #[tonic::async_trait]
 impl Grid for GridServerImpl {
+    async fn fetch_results(
+        &self,
+        result_fetch_request: Request<ResultFetchRequest>,
+    ) -> Result<Response<ResultFetchResponse>, Status> {
+        let result_fetch_request = result_fetch_request.get_ref();
+        let client_id = result_fetch_request.client_id;
+
+        let maybe_results = self
+            .results_per_client_id
+            .lock()
+            .unwrap()
+            .remove(&client_id);
+
+        // There are results for the given client ID.
+        if let Some(results) = maybe_results {
+            info!("Sending results to client {client_id}");
+
+            return Ok(Response::new(ResultFetchResponse { results }));
+        }
+
+        Ok(Response::new(ResultFetchResponse { results: vec![] }))
+    }
+
+    async fn get_status(
+        &self,
+        _request: Request<StatusRequest>,
+    ) -> Result<Response<StatusResponse>, Status> {
+        let mut status = HashMap::new();
+
+        // Add the queued jobs.
+        status.insert(
+            "jobs".to_string(),
+            format!("{:?}", self.jobs_per_service_id_and_version.lock().unwrap()),
+        );
+        // Add the queued results.
+        status.insert(
+            "results".to_string(),
+            format!("{:?}", self.results_per_client_id.lock().unwrap()),
+        );
+        // TODO: connected clients
+        //status.insert("", format!("", self.));
+
+        Ok(Response::new(StatusResponse { status }))
+    }
+
     async fn register_client(
         &self,
         _request: Request<RegisterClientRequest>,
@@ -140,6 +185,20 @@ impl Grid for GridServerImpl {
         Ok(Response::new(JobSubmitResponse { job_id }))
     }
 
+    async fn submit_result(
+        &self,
+        request: Request<ResultSubmitRequest>,
+    ) -> Result<Response<ResultSubmitResponse>, Status> {
+        let request = request.get_ref();
+
+        // There is a result.
+        if let Some(result) = &request.result {
+            self.add_result(result);
+        }
+
+        Ok(Response::new(ResultSubmitResponse {}))
+    }
+
     async fn worker_server_exchange(
         &self,
         job_fetch_request: Request<WorkerServerExchangeRequest>,
@@ -149,7 +208,7 @@ impl Grid for GridServerImpl {
         {
             // There is a result from the worker.
             if let Some(result_from_worker) = &job_fetch_request.result_from_worker {
-                self.add_result(&result_from_worker);
+                self.add_result(result_from_worker);
             }
 
             // Try to get jobs for the given request.
@@ -181,57 +240,6 @@ impl Grid for GridServerImpl {
         }
 
         Ok(Response::new(WorkerServerExchangeResponse { job: None }))
-    }
-
-    async fn submit_result(
-        &self,
-        request: Request<ResultSubmitRequest>,
-    ) -> Result<Response<ResultSubmitResponse>, Status> {
-        let request = request.get_ref();
-
-        // There is a result.
-        if let Some(result) = &request.result {
-            self.add_result(&result);
-        }
-
-        Ok(Response::new(ResultSubmitResponse {}))
-    }
-
-    async fn fetch_results(
-        &self,
-        result_fetch_request: Request<ResultFetchRequest>,
-    ) -> Result<Response<ResultFetchResponse>, Status> {
-        let result_fetch_request = result_fetch_request.get_ref();
-        let client_id = result_fetch_request.client_id;
-
-        let maybe_results = self
-            .results_per_client_id
-            .lock()
-            .unwrap()
-            .remove(&client_id);
-
-        // There are results for the given client ID.
-        if let Some(results) = maybe_results {
-            info!("Sending results to client {client_id}");
-
-            return Ok(Response::new(ResultFetchResponse { results }));
-        }
-
-        Ok(Response::new(ResultFetchResponse { results: vec![] }))
-    }
-
-    async fn get_status(
-        &self,
-        request: Request<StatusRequest>,
-    ) -> Result<Response<StatusResponse>, Status> {
-        let mut status = HashMap::new();
-
-        // TODO: jobs in queue
-        // TODO: results in queue
-        // TODO: connected clients
-        //status.insert("", format!("", self.))
-
-        Ok(Response::new(StatusResponse { status }))
     }
 }
 

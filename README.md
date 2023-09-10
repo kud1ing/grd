@@ -14,12 +14,10 @@ See tonic's [dependencies](https://github.com/hyperium/tonic#dependencies)
 
 ## Backlog
 
-* [ ] implement `server::request_status()`
-  * [ ] number of jobs
-  * [ ] number of results
-  * [ ] connected clients
-* [ ] implement `app_control`
-* [ ] implement `app_worker`
+* [ ] `app_worker`: use the service library
+  * https://doc.rust-lang.org/std/primitive.pointer.html#common-ways-to-create-raw-pointers
+* [ ] implement `server::get_status()`: connected/registered clients
+  * [ ] how?
 * [ ] create `lib_service_function` to support C-function based service libraries
   * http://kmdouglass.github.io/posts/a-simple-plugin-interface-for-the-rust-ffi/
 * [ ] `WorkerServerExchangeResponse`: add commands to the worker

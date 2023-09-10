@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-grid_client = { path= "../lib_grid_client" }
 cxx = "1.0"
+grid_client = { path= "../lib_grid_client" }
 grid_server_interface = { path= "../lib_grid_server_interface" }
 
 [build-dependencies]

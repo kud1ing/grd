@@ -1,6 +1,6 @@
 use crate::{connect_async_grid_client, AsyncGridClient};
 use grid_server_interface::{
-    JobId, JobSubmitResponse, ResultFetchResponse, ResultSubmitResponse, ServiceId, ServiceVersion,
+    JobSubmitResponse, ResultFetchResponse, ResultSubmitResponse, ServiceId, ServiceVersion,
     WorkerServerExchangeResponse,
 };
 use tokio::runtime::{Builder, Runtime};
@@ -51,6 +51,15 @@ impl SyncGridClient {
     }
 
     ///
+    pub fn submit_result(
+        &mut self,
+        result: grid_server_interface::Result,
+    ) -> Result<Response<ResultSubmitResponse>, Status> {
+        self.async_runtime
+            .block_on(self.async_grid_client.submit_result(result))
+    }
+
+    ///
     pub fn worker_server_exchange(
         &mut self,
         service_id: ServiceId,
@@ -63,14 +72,5 @@ impl SyncGridClient {
                 service_version,
                 result_from_worker,
             ))
-    }
-
-    ///
-    pub fn submit_result(
-        &mut self,
-        result: grid_server_interface::Result,
-    ) -> Result<Response<ResultSubmitResponse>, Status> {
-        self.async_runtime
-            .block_on(self.async_grid_client.submit_result(result))
     }
 }

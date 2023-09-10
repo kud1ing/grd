@@ -1,8 +1,8 @@
+use grid_server_interface::grid_server_interface::{StatusRequest, StatusResponse};
 use grid_server_interface::{
-    ClientId, GridClient, JobId, JobQuery, JobSubmitRequest, JobSubmitResponse,
-    RegisterClientRequest, ResultFetchRequest, ResultFetchResponse, ResultSubmitRequest,
-    ResultSubmitResponse, ServiceId, ServiceVersion, WorkerServerExchangeRequest,
-    WorkerServerExchangeResponse,
+    ClientId, GridClient, JobQuery, JobSubmitRequest, JobSubmitResponse, RegisterClientRequest,
+    ResultFetchRequest, ResultFetchResponse, ResultSubmitRequest, ResultSubmitResponse, ServiceId,
+    ServiceVersion, WorkerServerExchangeRequest, WorkerServerExchangeResponse,
 };
 use tonic::transport::Channel;
 use tonic::{Request, Response, Status};
@@ -69,6 +69,13 @@ impl AsyncGridClient {
     }
 
     ///
+    pub async fn get_status(&mut self) -> Result<Response<StatusResponse>, Status> {
+        self.grid_client
+            .get_status(Request::new(StatusRequest {}))
+            .await
+    }
+
+    ///
     pub async fn submit_job(
         &mut self,
         service_id: ServiceId,
@@ -81,6 +88,18 @@ impl AsyncGridClient {
                 job_data,
                 service_id,
                 service_version,
+            }))
+            .await
+    }
+
+    ///
+    pub async fn submit_result(
+        &mut self,
+        result: grid_server_interface::Result,
+    ) -> Result<Response<ResultSubmitResponse>, Status> {
+        self.grid_client
+            .submit_result(Request::new(ResultSubmitRequest {
+                result: Some(result),
             }))
             .await
     }
@@ -99,18 +118,6 @@ impl AsyncGridClient {
                     service_version,
                 }),
                 result_from_worker,
-            }))
-            .await
-    }
-
-    ///
-    pub async fn submit_result(
-        &mut self,
-        result: grid_server_interface::Result,
-    ) -> Result<Response<ResultSubmitResponse>, Status> {
-        self.grid_client
-            .submit_result(Request::new(ResultSubmitRequest {
-                result: Some(result),
             }))
             .await
     }

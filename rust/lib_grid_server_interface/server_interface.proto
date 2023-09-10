@@ -83,10 +83,10 @@ message StatusResponse {
 // =====================================================================================================================
 
 service Grid {
-  rpc RegisterClient (RegisterClientRequest) returns (RegisterClientResponse);
-  rpc SubmitJob (JobSubmitRequest) returns (JobSubmitResponse);
-  rpc WorkerServerExchange (WorkerServerExchangeRequest) returns (WorkerServerExchangeResponse);
-  rpc SubmitResult (ResultSubmitRequest) returns (ResultSubmitResponse);
   rpc FetchResults (ResultFetchRequest) returns (ResultFetchResponse);
   rpc GetStatus (StatusRequest) returns (StatusResponse);
+  rpc RegisterClient (RegisterClientRequest) returns (RegisterClientResponse);
+  rpc SubmitJob (JobSubmitRequest) returns (JobSubmitResponse);
+  rpc SubmitResult (ResultSubmitRequest) returns (ResultSubmitResponse);
+  rpc WorkerServerExchange (WorkerServerExchangeRequest) returns (WorkerServerExchangeResponse);
 }
