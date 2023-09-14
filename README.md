@@ -14,14 +14,21 @@ See tonic's [dependencies](https://github.com/hyperium/tonic#dependencies)
 
 ## Backlog
 
+* make it possible to send commands to the worker via `ResponseToWorkerExchange`:
+  * [ ] Stop Worker
+    * [ ] implement `controller_stop_worker()`
+      * [ ] add the worker client ID to a member `commands_for_workers`
+    * [ ] `worker_server_exchange()`: determine `stop_worker` from  `commands_for_workers` 
+      * [ ] remove the client information for the worker and from  `commands_for_workers`
+  * [ ] Start Worker "<SERVER_ADDRESS> <CLIENT_DESCRIPTION> <SERVICE_ID> <SERVICE_VERSION>"
+    * https://doc.rust-lang.org/std/process/struct.Command.html
+* [ ] Server status: uses serde-json and send a JSON string
 * [ ] `app_worker`: use the service library
   * https://doc.rust-lang.org/std/primitive.pointer.html#common-ways-to-create-raw-pointers
-* [ ] implement `server::get_status()`: connected/registered clients
-  * [ ] how?
-* [ ] create `lib_service_function` to support C-function based service libraries
-  * http://kmdouglass.github.io/posts/a-simple-plugin-interface-for-the-rust-ffi/
-* [ ] `WorkerServerExchangeResponse`: add commands to the worker
-  * https://protobuf.dev/programming-guides/enum/
+* [ ] `app_worker`: add a signal handler, to capture Ctrl+C
+  * https://rust-cli.github.io/book/in-depth/signals.html
+  * https://vorner.github.io/2018/06/28/signal-hook.html
+* [ ] `shutdown_server()`: shutdown delayed so that a response can be send.
 * [ ] `client_cpp`: create a sync C++ client
   * [ ] how to check-in/distribute the generated `.cc` and `.h` files?
   * [ ] expose `SyncGridClient`'s methods

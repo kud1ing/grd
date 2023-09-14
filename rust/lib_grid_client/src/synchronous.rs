@@ -1,7 +1,7 @@
 use crate::{connect_async_grid_client, AsyncGridClient};
 use grid_server_interface::{
-    JobSubmitResponse, ResultFetchResponse, ResultSubmitResponse, ServiceId, ServiceVersion,
-    WorkerServerExchangeResponse,
+    ResponseToClientJobSubmit, ResponseToClientResultFetch, ResponseToWorkerExchange,
+    ResponseToWorkerResultSubmit, ServiceId, ServiceVersion,
 };
 use tokio::runtime::{Builder, Runtime};
 use tonic::{Response, Status};
@@ -15,13 +15,13 @@ pub struct SyncGridClient {
 ///
 pub fn connect_sync_grid_client(
     server_address: &str,
-    client_name: String,
+    client_id: String,
 ) -> Result<SyncGridClient, Box<dyn std::error::Error>> {
     let async_runtime = Builder::new_multi_thread().enable_all().build()?;
 
     // Connect the grid client.
     let async_grid_client =
-        async_runtime.block_on(connect_async_grid_client(server_address, client_name))?;
+        async_runtime.block_on(connect_async_grid_client(server_address, client_id))?;
 
     Ok(SyncGridClient {
         async_grid_client,
@@ -31,32 +31,35 @@ pub fn connect_sync_grid_client(
 
 impl SyncGridClient {
     ///
-    pub fn fetch_results(&mut self) -> Result<Response<ResultFetchResponse>, Status> {
+    pub fn client_fetch_results(
+        &mut self,
+    ) -> Result<Response<ResponseToClientResultFetch>, Status> {
         self.async_runtime
-            .block_on(self.async_grid_client.fetch_results())
+            .block_on(self.async_grid_client.client_fetch_results())
     }
 
     ///
-    pub fn submit_job(
+    pub fn client_submit_job(
         &mut self,
         service_id: ServiceId,
         service_version: ServiceVersion,
         job_data: Vec<u8>,
-    ) -> Result<Response<JobSubmitResponse>, Status> {
+    ) -> Result<Response<ResponseToClientJobSubmit>, Status> {
         self.async_runtime
-            .block_on(
-                self.async_grid_client
-                    .submit_job(service_id, service_version, job_data),
-            )
+            .block_on(self.async_grid_client.client_submit_job(
+                service_id,
+                service_version,
+                job_data,
+            ))
     }
 
     ///
-    pub fn submit_result(
+    pub fn worker_submit_result(
         &mut self,
         result: grid_server_interface::Result,
-    ) -> Result<Response<ResultSubmitResponse>, Status> {
+    ) -> Result<Response<ResponseToWorkerResultSubmit>, Status> {
         self.async_runtime
-            .block_on(self.async_grid_client.submit_result(result))
+            .block_on(self.async_grid_client.worker_submit_result(result))
     }
 
     ///
@@ -65,7 +68,7 @@ impl SyncGridClient {
         service_id: ServiceId,
         service_version: ServiceVersion,
         result_from_worker: Option<grid_server_interface::Result>,
-    ) -> Result<Response<WorkerServerExchangeResponse>, Status> {
+    ) -> Result<Response<ResponseToWorkerExchange>, Status> {
         self.async_runtime
             .block_on(self.async_grid_client.worker_server_exchange(
                 service_id,

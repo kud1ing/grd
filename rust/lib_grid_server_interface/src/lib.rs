@@ -19,9 +19,11 @@ pub type ServiceId = u32;
 pub type ServiceVersion = u32;
 
 pub use crate::grid_server_interface::{
-    Job, JobQuery, JobSubmitRequest, JobSubmitResponse, RegisterClientRequest,
-    RegisterClientResponse, Result, ResultFetchRequest, ResultFetchResponse, ResultSubmitRequest,
-    ResultSubmitResponse, WorkerServerExchangeRequest, WorkerServerExchangeResponse,
+    Job, JobQuery, RequestFromClientJobSubmit, RequestFromClientRegister,
+    RequestFromClientResultFetch, RequestFromControllerServerStop, RequestFromWorkerExchange,
+    RequestFromWorkerResultSubmit, ResponseToClientJobSubmit, ResponseToClientRegister,
+    ResponseToClientResultFetch, ResponseToControllerServerStop, ResponseToWorkerExchange,
+    ResponseToWorkerResultSubmit, Result,
 };
 pub use grid_server_interface::grid_client::GridClient;
 pub use grid_server_interface::grid_server::{Grid, GridServer};

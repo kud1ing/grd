@@ -1,12 +1,20 @@
+mod client_information;
+
 #[macro_use]
 extern crate log;
 
-use grid_server_interface::grid_server_interface::{StatusRequest, StatusResponse};
+use crate::client_information::ClientInformation;
+use chrono::Utc;
+use grid_server_interface::grid_server_interface::{
+    RequestFromControllerServerStop, RequestFromControllerStatusGet,
+    RequestFromControllerWorkerStop, ResponseToControllerServerStop, ResponseToControllerStatusGet,
+    ResponseToControllerWorkerStop,
+};
 use grid_server_interface::{
-    ClientId, Grid, GridServer, Job, JobId, JobSubmitRequest, JobSubmitResponse,
-    RegisterClientRequest, RegisterClientResponse, ResultFetchRequest, ResultFetchResponse,
-    ResultSubmitRequest, ResultSubmitResponse, ServiceId, ServiceVersion,
-    WorkerServerExchangeRequest, WorkerServerExchangeResponse,
+    ClientId, Grid, GridServer, Job, JobId, RequestFromClientJobSubmit, RequestFromClientRegister,
+    RequestFromClientResultFetch, RequestFromWorkerExchange, RequestFromWorkerResultSubmit,
+    ResponseToClientJobSubmit, ResponseToClientRegister, ResponseToClientResultFetch,
+    ResponseToWorkerExchange, ResponseToWorkerResultSubmit, ServiceId, ServiceVersion,
 };
 use std::collections::{HashMap, VecDeque};
 use std::env::args;
@@ -18,6 +26,8 @@ use tonic::{transport::Server, Request, Response, Status};
 pub struct GridServerImpl {
     /// A map from the job IDs to the ID of the client the job was submitted from.
     client_id_per_job_id: Mutex<HashMap<JobId, ClientId>>,
+    ///
+    client_information_per_client_id: Mutex<HashMap<ClientId, ClientInformation>>,
     /// A map from the client ID to a map of the service version to its jobs.
     jobs_per_service_id_and_version:
         Mutex<HashMap<ServiceId, HashMap<ServiceVersion, VecDeque<Job>>>>,
@@ -34,6 +44,7 @@ impl GridServerImpl {
     fn new() -> Self {
         GridServerImpl {
             client_id_per_job_id: Mutex::new(HashMap::new()),
+            client_information_per_client_id: Mutex::new(HashMap::new()),
             jobs_per_service_id_and_version: Mutex::new(HashMap::new()),
             next_client_id: Mutex::new(0),
             next_job_id: Mutex::new(0),
@@ -66,17 +77,38 @@ impl GridServerImpl {
             );
         }
     }
+
+    ///
+    fn update_client_last_access_time(&self, _client_id: ClientId) {
+        let _client_information_per_client_id =
+            self.client_information_per_client_id.lock().unwrap();
+
+        // TODO
+        /*
+        client_information_per_client_id
+            .entry(client_id)
+            .or_insert(ClientInformation {
+                client_id: format!("{client_id}"),
+                host_id: request.client_id.clone(),
+                last_access: Utc::now(),
+                user_id: request.user_id.clone(),
+            });
+         */
+    }
 }
 
 /// The implementation of the server interface for the server.
 #[tonic::async_trait]
 impl Grid for GridServerImpl {
-    async fn fetch_results(
+    async fn client_fetch_results(
         &self,
-        result_fetch_request: Request<ResultFetchRequest>,
-    ) -> Result<Response<ResultFetchResponse>, Status> {
-        let result_fetch_request = result_fetch_request.get_ref();
-        let client_id = result_fetch_request.client_id;
+        request: Request<RequestFromClientResultFetch>,
+    ) -> Result<Response<ResponseToClientResultFetch>, Status> {
+        let request = request.get_ref();
+        let client_id = request.client_id;
+
+        // Update the client's last access time.
+        self.update_client_last_access_time(client_id);
 
         let maybe_results = self
             .results_per_client_id
@@ -88,56 +120,60 @@ impl Grid for GridServerImpl {
         if let Some(results) = maybe_results {
             info!("Sending results to client {client_id}");
 
-            return Ok(Response::new(ResultFetchResponse { results }));
+            return Ok(Response::new(ResponseToClientResultFetch { results }));
         }
 
-        Ok(Response::new(ResultFetchResponse { results: vec![] }))
+        Ok(Response::new(ResponseToClientResultFetch {
+            results: vec![],
+        }))
     }
 
-    async fn get_status(
+    async fn client_register(
         &self,
-        _request: Request<StatusRequest>,
-    ) -> Result<Response<StatusResponse>, Status> {
-        let mut status = HashMap::new();
-
-        // Add the queued jobs.
-        status.insert(
-            "jobs".to_string(),
-            format!("{:?}", self.jobs_per_service_id_and_version.lock().unwrap()),
-        );
-        // Add the queued results.
-        status.insert(
-            "results".to_string(),
-            format!("{:?}", self.results_per_client_id.lock().unwrap()),
-        );
-        // TODO: connected clients
-        //status.insert("", format!("", self.));
-
-        Ok(Response::new(StatusResponse { status }))
-    }
-
-    async fn register_client(
-        &self,
-        _request: Request<RegisterClientRequest>,
-    ) -> Result<Response<RegisterClientResponse>, Status> {
+        request: Request<RequestFromClientRegister>,
+    ) -> Result<Response<ResponseToClientRegister>, Status> {
         // TODO: Grant or deny a client ID according to the request.
-        warn!("TODO: `register_client()`: grant or deny a client ID according to the request.");
+        warn!("TODO: `client_register()`: grant or deny a client ID according to the request.");
 
         let mut next_client_id = self.next_client_id.lock().unwrap();
 
         // Get the current client ID.
         let client_id = *next_client_id;
 
+        // Save client information.
+        {
+            let request = request.get_ref();
+            let mut client_information_per_client_id =
+                self.client_information_per_client_id.lock().unwrap();
+
+            client_information_per_client_id
+                .entry(client_id)
+                .or_insert(ClientInformation {
+                    client_description: request.client_description.clone(),
+                    host_id: request.host_id.clone(),
+                    last_access: Utc::now(),
+                    user_id: request.user_id.clone(),
+                });
+
+            // client_information_per_client_id
+        }
+
         // Increase the next client ID.
         *next_client_id += 1;
 
-        Ok(Response::new(RegisterClientResponse { client_id }))
+        Ok(Response::new(ResponseToClientRegister { client_id }))
     }
 
-    async fn submit_job(
+    async fn client_submit_job(
         &self,
-        job_submit_request: Request<JobSubmitRequest>,
-    ) -> Result<Response<JobSubmitResponse>, Status> {
+        request: Request<RequestFromClientJobSubmit>,
+    ) -> Result<Response<ResponseToClientJobSubmit>, Status> {
+        let request = request.get_ref();
+        let client_id = request.client_id;
+
+        // Update the client's last access time.
+        self.update_client_last_access_time(client_id);
+
         let job_id;
 
         // Get the job ID.
@@ -152,8 +188,6 @@ impl Grid for GridServerImpl {
             *next_job_id += 1;
         }
 
-        let client_id = job_submit_request.get_ref().client_id;
-
         // Register the job ID with the given client ID.
         self.client_id_per_job_id
             .lock()
@@ -164,55 +198,105 @@ impl Grid for GridServerImpl {
 
         // Collect the job from the given request.
         {
-            let job_submit_request = job_submit_request.get_ref();
-
             let mut jobs_per_service_id_and_version =
                 self.jobs_per_service_id_and_version.lock().unwrap();
 
             // Add the given job data for the given service type and version.
             jobs_per_service_id_and_version
-                .entry(job_submit_request.service_id)
+                .entry(request.service_id)
                 .or_default()
-                .entry(job_submit_request.service_version)
+                .entry(request.service_version)
                 .or_default()
                 .push_back(Job {
-                    job_data: job_submit_request.job_data.clone(),
+                    job_data: request.job_data.clone(),
                     job_id,
                 });
         }
 
         // Return the job ID.
-        Ok(Response::new(JobSubmitResponse { job_id }))
+        Ok(Response::new(ResponseToClientJobSubmit { job_id }))
     }
 
-    async fn submit_result(
+    async fn controller_get_status(
         &self,
-        request: Request<ResultSubmitRequest>,
-    ) -> Result<Response<ResultSubmitResponse>, Status> {
+        request: Request<RequestFromControllerStatusGet>,
+    ) -> Result<Response<ResponseToControllerStatusGet>, Status> {
         let request = request.get_ref();
+        let client_id = request.client_id;
 
-        // There is a result.
-        if let Some(result) = &request.result {
-            self.add_result(result);
-        }
+        // Update the client's last access time.
+        self.update_client_last_access_time(client_id);
 
-        Ok(Response::new(ResultSubmitResponse {}))
+        let mut status = HashMap::new();
+
+        // Add the clients.
+        status.insert(
+            "clients".to_string(),
+            format!(
+                "{:?}",
+                self.client_information_per_client_id.lock().unwrap()
+            ),
+        );
+        // Add the queued jobs.
+        status.insert(
+            "jobs".to_string(),
+            format!("{:?}", self.jobs_per_service_id_and_version.lock().unwrap()),
+        );
+        // Add the queued results.
+        status.insert(
+            "results".to_string(),
+            format!("{:?}", self.results_per_client_id.lock().unwrap()),
+        );
+        // TODO: connected clients
+        //status.insert("", format!("", self.));
+
+        Ok(Response::new(ResponseToControllerStatusGet { status }))
+    }
+
+    async fn controller_stop_server(
+        &self,
+        request: Request<RequestFromControllerServerStop>,
+    ) -> Result<Response<ResponseToControllerServerStop>, Status> {
+        let request = request.get_ref();
+        let client_id = request.client_id;
+
+        // Update the client's last access time.
+        self.update_client_last_access_time(client_id);
+
+        info!("Shutting down due to request by client with ID {client_id}");
+
+        // TODO: shutdown delayed so that a response can be send.
+        exit(0);
+    }
+
+    async fn controller_stop_worker(
+        &self,
+        request: Request<RequestFromControllerWorkerStop>,
+    ) -> Result<Response<ResponseToControllerWorkerStop>, Status> {
+        todo!()
     }
 
     async fn worker_server_exchange(
         &self,
-        job_fetch_request: Request<WorkerServerExchangeRequest>,
-    ) -> Result<Response<WorkerServerExchangeResponse>, Status> {
-        let job_fetch_request = job_fetch_request.get_ref();
+        request: Request<RequestFromWorkerExchange>,
+    ) -> Result<Response<ResponseToWorkerExchange>, Status> {
+        let request = request.get_ref();
+        let client_id = request.client_id;
+
+        // Update the client's last access time.
+        self.update_client_last_access_time(client_id);
+
+        // TODO
+        let stop_worker = false;
 
         {
             // There is a result from the worker.
-            if let Some(result_from_worker) = &job_fetch_request.result_from_worker {
+            if let Some(result_from_worker) = &request.result_from_worker {
                 self.add_result(result_from_worker);
             }
 
             // Try to get jobs for the given request.
-            if let Some(query_job_from_server) = &job_fetch_request.query_job_from_server {
+            if let Some(query_job_from_server) = &request.query_job_from_server {
                 let mut jobs_per_service_id_and_version =
                     self.jobs_per_service_id_and_version.lock().unwrap();
 
@@ -230,8 +314,9 @@ impl Grid for GridServerImpl {
 
                             info!("Sending job with ID {job_id} to worker");
 
-                            return Ok(Response::new(WorkerServerExchangeResponse {
+                            return Ok(Response::new(ResponseToWorkerExchange {
                                 job: Some(job),
+                                stop_worker,
                             }));
                         }
                     }
@@ -239,7 +324,28 @@ impl Grid for GridServerImpl {
             }
         }
 
-        Ok(Response::new(WorkerServerExchangeResponse { job: None }))
+        Ok(Response::new(ResponseToWorkerExchange {
+            job: None,
+            stop_worker,
+        }))
+    }
+
+    async fn worker_submit_result(
+        &self,
+        request: Request<RequestFromWorkerResultSubmit>,
+    ) -> Result<Response<ResponseToWorkerResultSubmit>, Status> {
+        let request = request.get_ref();
+        let client_id = request.client_id;
+
+        // Update the client's last access time.
+        self.update_client_last_access_time(client_id);
+
+        // There is a result.
+        if let Some(result) = &request.result {
+            self.add_result(result);
+        }
+
+        Ok(Response::new(ResponseToWorkerResultSubmit {}))
     }
 }
 

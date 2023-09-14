@@ -1,6 +1,4 @@
 use grid_client::connect_async_grid_client;
-use grid_server_interface::ServiceId;
-use libc;
 use log::{error, info};
 use std::env::args;
 use std::process::exit;
@@ -23,19 +21,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let command_line_arguments: Vec<_> = args().collect();
 
     // Too few command line arguments are given.
-    if command_line_arguments.len() < 6 {
+    if command_line_arguments.len() < 5 {
         error!(
-            "Usage: grid-worker <SERVER_ADDRESS> <WORKER_NAME> <SERVICE_ID> <SERVICE_VERSION>\
+            "Usage: grid-worker <SERVER_ADDRESS> <SERVICE_ID> <SERVICE_VERSION>\
              <PATH_SERVICE_FUNCTION>"
         );
         exit(-1);
     }
 
     let server_address = &command_line_arguments[1];
-    let worker_name = &command_line_arguments[2];
-    let service_id = command_line_arguments[3].parse()?;
-    let service_version = command_line_arguments[4].parse()?;
-    let path_service_library = &command_line_arguments[5];
+    let service_id = command_line_arguments[2].parse()?;
+    let service_version = command_line_arguments[3].parse()?;
+    let path_service_library = &command_line_arguments[4];
 
     // Try to load the service library.
     let service_library = unsafe { libloading::Library::new(path_service_library)? };
@@ -45,8 +42,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         unsafe { service_library.get(b"service_function")? };
 
     // Try to connect to the server.
-    let mut grid_client =
-        connect_async_grid_client(server_address, worker_name.to_string()).await?;
+    let mut grid_client = connect_async_grid_client(
+        server_address,
+        format!("worker {service_id} {service_version} {path_service_library}"),
+    )
+    .await?;
 
     info!("Processing jobs ...");
 
@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let worker_server_exchange_response = worker_server_exchange_response.get_ref();
 
-        let job =
+        let _job =
             // There is a new job from the server.
             if let Some(job) = &worker_server_exchange_response.job {
                 job

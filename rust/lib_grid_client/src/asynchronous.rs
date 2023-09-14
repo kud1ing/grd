@@ -1,8 +1,13 @@
-use grid_server_interface::grid_server_interface::{StatusRequest, StatusResponse};
+use grid_server_interface::grid_server_interface::{
+    RequestFromControllerStatusGet, RequestFromControllerWorkerStop, ResponseToControllerStatusGet,
+    ResponseToControllerWorkerStop,
+};
 use grid_server_interface::{
-    ClientId, GridClient, JobQuery, JobSubmitRequest, JobSubmitResponse, RegisterClientRequest,
-    ResultFetchRequest, ResultFetchResponse, ResultSubmitRequest, ResultSubmitResponse, ServiceId,
-    ServiceVersion, WorkerServerExchangeRequest, WorkerServerExchangeResponse,
+    ClientId, GridClient, JobQuery, RequestFromClientJobSubmit, RequestFromClientRegister,
+    RequestFromClientResultFetch, RequestFromControllerServerStop, RequestFromWorkerExchange,
+    RequestFromWorkerResultSubmit, ResponseToClientJobSubmit, ResponseToClientResultFetch,
+    ResponseToControllerServerStop, ResponseToWorkerExchange, ResponseToWorkerResultSubmit,
+    ServiceId, ServiceVersion,
 };
 use tonic::transport::Channel;
 use tonic::{Request, Response, Status};
@@ -22,15 +27,15 @@ fn client_hostname() -> Option<String> {
 
 ///
 #[cfg(target_os = "windows")]
-fn user_name() -> Option<String> {
+fn user_id() -> Option<String> {
     // TODO
-    println!("TODO: `user_name()` on windows");
+    println!("TODO: `user_id()` on windows");
     Some("".to_string())
 }
 
 ///
 #[cfg(not(target_os = "windows"))]
-fn user_name() -> Option<String> {
+fn user_id() -> Option<String> {
     let user = get_user_by_uid(get_current_uid())?;
 
     Some(user.name().to_str()?.to_string())
@@ -39,16 +44,16 @@ fn user_name() -> Option<String> {
 ///
 pub async fn connect_async_grid_client(
     server_address: &str,
-    client_name: String,
+    client_description: String,
 ) -> Result<AsyncGridClient, Box<dyn std::error::Error>> {
     let mut grid_client = GridClient::connect(format!("http://{}", server_address)).await?;
 
     // Register the client with the server.
     let register_client_response = grid_client
-        .register_client(Request::new(RegisterClientRequest {
-            host_name: client_hostname().unwrap_or_default().to_lowercase(),
-            user_name: user_name().unwrap_or_default().to_lowercase(),
-            client_name,
+        .client_register(Request::new(RequestFromClientRegister {
+            client_description,
+            host_id: client_hostname().unwrap_or_default().to_lowercase(),
+            user_id: user_id().unwrap_or_default().to_lowercase(),
         }))
         .await?;
 
@@ -60,30 +65,60 @@ pub async fn connect_async_grid_client(
 
 impl AsyncGridClient {
     ///
-    pub async fn fetch_results(&mut self) -> Result<Response<ResultFetchResponse>, Status> {
+    pub async fn client_fetch_results(
+        &mut self,
+    ) -> Result<Response<ResponseToClientResultFetch>, Status> {
         self.grid_client
-            .fetch_results(Request::new(ResultFetchRequest {
+            .client_fetch_results(Request::new(RequestFromClientResultFetch {
                 client_id: self.client_id,
             }))
             .await
     }
 
     ///
-    pub async fn get_status(&mut self) -> Result<Response<StatusResponse>, Status> {
+    pub async fn controller_get_status(
+        &mut self,
+    ) -> Result<Response<ResponseToControllerStatusGet>, Status> {
         self.grid_client
-            .get_status(Request::new(StatusRequest {}))
+            .controller_get_status(Request::new(RequestFromControllerStatusGet {
+                client_id: self.client_id,
+            }))
             .await
     }
 
     ///
-    pub async fn submit_job(
+    pub async fn controller_stop_server(
+        &mut self,
+    ) -> Result<Response<ResponseToControllerServerStop>, Status> {
+        self.grid_client
+            .controller_stop_server(Request::new(RequestFromControllerServerStop {
+                client_id: self.client_id,
+            }))
+            .await
+    }
+
+    ///
+    pub async fn controller_stop_worker(
+        &mut self,
+        worker_client_id: ClientId,
+    ) -> Result<Response<ResponseToControllerWorkerStop>, Status> {
+        self.grid_client
+            .controller_stop_worker(Request::new(RequestFromControllerWorkerStop {
+                client_id: self.client_id,
+                worker_client_id,
+            }))
+            .await
+    }
+
+    ///
+    pub async fn client_submit_job(
         &mut self,
         service_id: ServiceId,
         service_version: ServiceVersion,
         job_data: Vec<u8>,
-    ) -> Result<Response<JobSubmitResponse>, Status> {
+    ) -> Result<Response<ResponseToClientJobSubmit>, Status> {
         self.grid_client
-            .submit_job(Request::new(JobSubmitRequest {
+            .client_submit_job(Request::new(RequestFromClientJobSubmit {
                 client_id: self.client_id,
                 job_data,
                 service_id,
@@ -93,12 +128,13 @@ impl AsyncGridClient {
     }
 
     ///
-    pub async fn submit_result(
+    pub async fn worker_submit_result(
         &mut self,
         result: grid_server_interface::Result,
-    ) -> Result<Response<ResultSubmitResponse>, Status> {
+    ) -> Result<Response<ResponseToWorkerResultSubmit>, Status> {
         self.grid_client
-            .submit_result(Request::new(ResultSubmitRequest {
+            .worker_submit_result(Request::new(RequestFromWorkerResultSubmit {
+                client_id: self.client_id,
                 result: Some(result),
             }))
             .await
@@ -110,9 +146,10 @@ impl AsyncGridClient {
         service_id: ServiceId,
         service_version: ServiceVersion,
         result_from_worker: Option<grid_server_interface::Result>,
-    ) -> Result<Response<WorkerServerExchangeResponse>, Status> {
+    ) -> Result<Response<ResponseToWorkerExchange>, Status> {
         self.grid_client
-            .worker_server_exchange(Request::new(WorkerServerExchangeRequest {
+            .worker_server_exchange(Request::new(RequestFromWorkerExchange {
+                client_id: self.client_id,
                 query_job_from_server: Some(JobQuery {
                     service_id,
                     service_version,

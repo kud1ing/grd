@@ -5,6 +5,7 @@ authors = ["Lennart Kudling"]
 edition = "2021"
 
 [dependencies]
+chrono = { workspace = true }
 env_logger = { workspace = true }
 grid_server_interface = { path= "../lib_grid_server_interface" }
 log = { workspace = true }

@@ -9,11 +9,11 @@ struct SyncGridClientWrapper(SyncGridClient);
 ///
 fn connect_sync_grid_client(
     server_address: &str,
-    client_name: String,
+    client_id: String,
 ) -> Result<Box<SyncGridClientWrapper>, Box<dyn std::error::Error>> {
     // Wrap the `SyncGridClient` in a `SyncGridClientWrapper`.
     Ok(Box::new(SyncGridClientWrapper(
-        grid_client::connect_sync_grid_client(server_address, client_name)?,
+        grid_client::connect_sync_grid_client(server_address, client_id)?,
     )))
 }
 
@@ -24,7 +24,7 @@ mod ffi {
 
         pub fn connect_sync_grid_client(
             server_address: &str,
-            client_name: String,
+            client_id: String,
         ) -> Result<Box<SyncGridClientWrapper>>;
     }
 }

@@ -6,11 +6,6 @@ message Job {
   bytes job_data = 2;
 }
 
-message JobQuery {
-  uint32 service_id = 1;
-  uint32 service_version = 2;
-}
-
 message Result {
   uint64 job_id = 1;
   bytes result_data = 2;
@@ -18,75 +13,114 @@ message Result {
 
 // =====================================================================================================================
 
-message RegisterClientRequest {
-  string host_name = 1;
-  string user_name = 2;
-  string client_name = 3;
+// Sent by every grid client at the beginning.
+message RequestFromClientRegister {
+  string client_description = 1;
+  string host_id = 2;
+  string user_id = 3;
 }
 
-message RegisterClientResponse {
+message ResponseToClientRegister {
   uint32 client_id = 1;
 }
 
 // =====================================================================================================================
 
-message JobSubmitRequest {
+// Sent when a grid client submits a job to the grid server.
+message RequestFromClientJobSubmit {
   uint32 client_id = 1;
   uint32 service_id = 2;
   uint32 service_version = 3;
   bytes job_data = 4;
 }
 
-message JobSubmitResponse {
+message ResponseToClientJobSubmit {
   uint64 job_id = 1;
 }
 
 // =====================================================================================================================
 
-message WorkerServerExchangeRequest {
-  JobQuery query_job_from_server = 1;
-  Result result_from_worker = 2;
+message JobQuery {
+  uint32 service_id = 1;
+  uint32 service_version = 2;
 }
 
-message WorkerServerExchangeResponse {
+// Sent regularly by a grid worker to the grid server in order to exchange jobs and results.
+message RequestFromWorkerExchange {
+  uint32 client_id = 1;
+  JobQuery query_job_from_server = 2;
+  Result result_from_worker = 3;
+}
+
+message ResponseToWorkerExchange {
   Job job = 1;
+  bool stop_worker = 2;
 }
 
 // =====================================================================================================================
 
-message ResultSubmitRequest {
-  Result result = 1;
+// Sent by the grid worker to the grid server in order to send a result. This is a variant of
+// `RequestFromWorkerExchange` without accepting a job.
+message RequestFromWorkerResultSubmit {
+  uint32 client_id = 1;
+  Result result = 2;
 }
 
-message ResultSubmitResponse {
+message ResponseToWorkerResultSubmit {
 }
 
 // =====================================================================================================================
 
-message ResultFetchRequest {
+// Sent by a grid client to a grid server in order to fetch results.
+message RequestFromClientResultFetch {
   uint32 client_id = 1;
 }
 
-message ResultFetchResponse {
+message ResponseToClientResultFetch {
   repeated Result results = 1;
 }
 
 // =====================================================================================================================
 
-message StatusRequest {
+// Sent by a grid controller client to the grid server in order to get its status.
+message RequestFromControllerStatusGet {
+  uint32 client_id = 1;
 }
 
-message StatusResponse {
+message ResponseToControllerStatusGet {
   map<string, string> status = 1;
 }
 
 // =====================================================================================================================
 
+// Sent by a grid controller client to the grid server in order to stop it.
+message RequestFromControllerServerStop {
+  uint32 client_id = 1;
+}
+
+message ResponseToControllerServerStop {
+}
+
+// =====================================================================================================================
+
+// Sent by a grid controller client to the grid server in order to stop it.
+message RequestFromControllerWorkerStop {
+  uint32 client_id = 1;
+  uint32 worker_client_id = 2;
+}
+
+message ResponseToControllerWorkerStop {
+}
+
+// =====================================================================================================================
+
 service Grid {
-  rpc FetchResults (ResultFetchRequest) returns (ResultFetchResponse);
-  rpc GetStatus (StatusRequest) returns (StatusResponse);
-  rpc RegisterClient (RegisterClientRequest) returns (RegisterClientResponse);
-  rpc SubmitJob (JobSubmitRequest) returns (JobSubmitResponse);
-  rpc SubmitResult (ResultSubmitRequest) returns (ResultSubmitResponse);
-  rpc WorkerServerExchange (WorkerServerExchangeRequest) returns (WorkerServerExchangeResponse);
+  rpc ClientFetchResults (RequestFromClientResultFetch) returns (ResponseToClientResultFetch);
+  rpc ClientRegister (RequestFromClientRegister) returns (ResponseToClientRegister);
+  rpc ClientSubmitJob (RequestFromClientJobSubmit) returns (ResponseToClientJobSubmit);
+  rpc ControllerGetStatus (RequestFromControllerStatusGet) returns (ResponseToControllerStatusGet);
+  rpc ControllerStopServer (RequestFromControllerServerStop) returns (ResponseToControllerServerStop);
+  rpc ControllerStopWorker (RequestFromControllerWorkerStop) returns (ResponseToControllerWorkerStop);
+  rpc WorkerServerExchange (RequestFromWorkerExchange) returns (ResponseToWorkerExchange);
+  rpc WorkerSubmitResult (RequestFromWorkerResultSubmit) returns (ResponseToWorkerResultSubmit);
 }

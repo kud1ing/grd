@@ -19,7 +19,7 @@ impl AsyncGridClient {
         /*
         Ok(AsyncGridClient {
             async_grid_client: pyo3_asyncio::tokio::future_into_py_with_locals(
-                connect_async_grid_client(server_address, client_name)
+                connect_async_grid_client(server_address, client_id)
                     .await
                     .map_err(|error| {
                         PyTypeError::new_err(format!("Can not connect to the server: {}", error))
@@ -52,8 +52,8 @@ impl AsyncGridClient {
     }
 
     ///
-    pub(crate) fn fetch_results(&mut self) -> PyResult<Vec<Result>> {
-        match self.sync_grid_client.fetch_results() {
+    pub(crate) fn client_fetch_results(&mut self) -> PyResult<Vec<Result>> {
+        match self.sync_grid_client.client_fetch_results() {
             // TODO: Can we move the data instead of cloning?
             Ok(result_fetch_response) => Ok(result_fetch_response
                 .get_ref()
@@ -70,7 +70,7 @@ impl AsyncGridClient {
     }
 
     ///
-    pub(crate) fn submit_job(
+    pub(crate) fn client_submit_job(
         &mut self,
         service_id: ServiceId,
         service_version: ServiceVersion,
@@ -78,7 +78,7 @@ impl AsyncGridClient {
     ) -> PyResult<JobId> {
         match self
             .sync_grid_client
-            .submit_job(service_id, service_version, job_data)
+            .client_submit_job(service_id, service_version, job_data)
         {
             Ok(job_submit_response) => Ok(job_submit_response.get_ref().job_id),
             Err(error) => Err(PyTypeError::new_err(format!(

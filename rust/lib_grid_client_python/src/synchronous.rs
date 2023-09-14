@@ -14,17 +14,17 @@ pub(crate) struct SyncGridClient {
 #[pymethods]
 impl SyncGridClient {
     #[new]
-    pub(crate) fn new(server_address: &str, client_name: String) -> PyResult<Self> {
+    pub(crate) fn new(server_address: &str, client_id: String) -> PyResult<Self> {
         Ok(SyncGridClient {
-            sync_grid_client: connect_sync_grid_client(server_address, client_name).map_err(
+            sync_grid_client: connect_sync_grid_client(server_address, client_id).map_err(
                 |error| PyTypeError::new_err(format!("Can not connect to the server: {}", error)),
             )?,
         })
     }
 
     ///
-    pub(crate) fn fetch_results(&mut self) -> PyResult<Vec<Result>> {
-        match self.sync_grid_client.fetch_results() {
+    pub(crate) fn client_fetch_results(&mut self) -> PyResult<Vec<Result>> {
+        match self.sync_grid_client.client_fetch_results() {
             // TODO: Can we move the data instead of cloning?
             Ok(result_fetch_response) => Ok(result_fetch_response
                 .get_ref()
@@ -41,7 +41,7 @@ impl SyncGridClient {
     }
 
     ///
-    pub(crate) fn submit_job(
+    pub(crate) fn client_submit_job(
         &mut self,
         service_id: ServiceId,
         service_version: ServiceVersion,
@@ -49,7 +49,7 @@ impl SyncGridClient {
     ) -> PyResult<JobId> {
         match self
             .sync_grid_client
-            .submit_job(service_id, service_version, job_data)
+            .client_submit_job(service_id, service_version, job_data)
         {
             Ok(job_submit_response) => Ok(job_submit_response.get_ref().job_id),
             Err(error) => Err(PyTypeError::new_err(format!(
@@ -85,10 +85,10 @@ impl SyncGridClient {
     }
 
     ///
-    pub(crate) fn submit_result(&mut self, result: Result) -> PyResult<()> {
+    pub(crate) fn worker_submit_result(&mut self, result: Result) -> PyResult<()> {
         match self
             .sync_grid_client
-            .submit_result(interface_result_from_result(result))
+            .worker_submit_result(interface_result_from_result(result))
         {
             Ok(_) => Ok(()),
             Err(error) => Err(PyTypeError::new_err(format!(
