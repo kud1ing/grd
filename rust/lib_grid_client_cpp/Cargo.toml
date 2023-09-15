@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 cxx = "1.0"
 grid_client = { path= "../lib_grid_client" }
-grid_server_interface = { path= "../lib_grid_server_interface" }
+grid_server_interface = { path= "../lib_interface_grid_server" }
 
 [build-dependencies]
 cxx-build = "1.0"

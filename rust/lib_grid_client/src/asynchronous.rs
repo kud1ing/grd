@@ -1,13 +1,11 @@
 use grid_server_interface::grid_server_interface::{
-    RequestFromControllerStatusGet, RequestFromControllerWorkerStop, ResponseToControllerStatusGet,
-    ResponseToControllerWorkerStop,
+    RequestFromControllerStatusGet, ResponseToControllerStatusGet,
 };
 use grid_server_interface::{
-    ClientId, GridClient, JobQuery, RequestFromClientJobSubmit, RequestFromClientRegister,
-    RequestFromClientResultFetch, RequestFromControllerServerStop, RequestFromWorkerExchange,
-    RequestFromWorkerResultSubmit, ResponseToClientJobSubmit, ResponseToClientResultFetch,
-    ResponseToControllerServerStop, ResponseToWorkerExchange, ResponseToWorkerResultSubmit,
-    ServiceId, ServiceVersion,
+    ClientId, GridServerClient, JobQuery, RequestFromClientJobSubmit, RequestFromClientRegister,
+    RequestFromClientResultFetch, RequestFromWorkerExchange, RequestFromWorkerResultSubmit,
+    ResponseToClientJobSubmit, ResponseToClientResultFetch, ResponseToWorkerExchange,
+    ResponseToWorkerResultSubmit, ServiceId, ServiceVersion,
 };
 use tonic::transport::Channel;
 use tonic::{Request, Response, Status};
@@ -17,7 +15,7 @@ use users::{get_current_uid, get_user_by_uid};
 ///
 pub struct AsyncGridClient {
     client_id: ClientId,
-    grid_client: GridClient<Channel>,
+    grid_client: GridServerClient<Channel>,
 }
 
 ///
@@ -46,7 +44,7 @@ pub async fn connect_async_grid_client(
     server_address: &str,
     client_description: String,
 ) -> Result<AsyncGridClient, Box<dyn std::error::Error>> {
-    let mut grid_client = GridClient::connect(format!("http://{}", server_address)).await?;
+    let mut grid_client = GridServerClient::connect(format!("http://{}", server_address)).await?;
 
     // Register the client with the server.
     let register_client_response = grid_client
@@ -82,30 +80,6 @@ impl AsyncGridClient {
         self.grid_client
             .controller_get_status(Request::new(RequestFromControllerStatusGet {
                 client_id: self.client_id,
-            }))
-            .await
-    }
-
-    ///
-    pub async fn controller_stop_server(
-        &mut self,
-    ) -> Result<Response<ResponseToControllerServerStop>, Status> {
-        self.grid_client
-            .controller_stop_server(Request::new(RequestFromControllerServerStop {
-                client_id: self.client_id,
-            }))
-            .await
-    }
-
-    ///
-    pub async fn controller_stop_worker(
-        &mut self,
-        worker_client_id: ClientId,
-    ) -> Result<Response<ResponseToControllerWorkerStop>, Status> {
-        self.grid_client
-            .controller_stop_worker(Request::new(RequestFromControllerWorkerStop {
-                client_id: self.client_id,
-                worker_client_id,
             }))
             .await
     }

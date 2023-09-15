@@ -1,4 +1,4 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tonic_build::compile_protos("server_interface.proto")?;
+    tonic_build::compile_protos("grid_manager_interface.proto")?;
     Ok(())
 }

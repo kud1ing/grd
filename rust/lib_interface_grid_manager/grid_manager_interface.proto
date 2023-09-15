@@ -1,0 +1,62 @@
+syntax = "proto3";
+package grid_manager_interface;
+
+message WorkerConfiguration {
+  string server_address = 1;
+  uint32 service_id = 2;
+  string service_library_path = 3;
+  uint32 service_version = 4;
+}
+
+// =====================================================================================================================
+
+// Sent by a grid controller in order to get the status.
+message RequestGetStatus {
+  uint32 client_id = 1;
+}
+
+message ResponseGetStatus {
+  // TODO
+}
+
+// =====================================================================================================================
+
+// Sent by a grid controller in order to stop a server.
+message RequestServerStop {
+  uint32 client_id = 1;
+}
+
+message ResponseServerStop {
+}
+
+// =====================================================================================================================
+
+// Sent by a grid controller in order to stop the worker with the given client ID.
+message RequestWorkerStart {
+  uint32 client_id = 1;
+  uint32 worker_client_id = 2;
+  WorkerConfiguration worker_configuration = 3;
+}
+
+message ResponseWorkerStart {
+}
+
+// =====================================================================================================================
+
+// Sent by a grid controller in order to stop the worker with the given client ID.
+message RequestWorkerStop {
+  uint32 client_id = 1;
+  uint32 worker_client_id = 2;
+}
+
+message ResponseWorkerStop {
+}
+
+// =====================================================================================================================
+
+service GridManager {
+  rpc GetStatus (RequestGetStatus) returns (ResponseGetStatus);
+  rpc StartWorker (RequestWorkerStart) returns (ResponseWorkerStart);
+  rpc StopServer (RequestServerStop) returns (ResponseServerStop);
+  rpc StopWorker (RequestWorkerStop) returns (ResponseWorkerStop);
+}

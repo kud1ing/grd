@@ -5,17 +5,14 @@ extern crate log;
 
 use crate::client_information::ClientInformation;
 use chrono::Utc;
-use grid_server_interface::grid_server_interface::{
-    RequestFromControllerServerStop, RequestFromControllerStatusGet,
-    RequestFromControllerWorkerStop, ResponseToControllerServerStop, ResponseToControllerStatusGet,
-    ResponseToControllerWorkerStop,
-};
 use grid_server_interface::{
-    ClientId, Grid, GridServer, Job, JobId, RequestFromClientJobSubmit, RequestFromClientRegister,
-    RequestFromClientResultFetch, RequestFromWorkerExchange, RequestFromWorkerResultSubmit,
-    ResponseToClientJobSubmit, ResponseToClientRegister, ResponseToClientResultFetch,
+    ClientId, GridServer, GridServerServer, Job, JobId, RequestFromClientJobSubmit,
+    RequestFromClientRegister, RequestFromClientResultFetch, RequestFromControllerStatusGet,
+    RequestFromWorkerExchange, RequestFromWorkerResultSubmit, ResponseToClientJobSubmit,
+    ResponseToClientRegister, ResponseToClientResultFetch, ResponseToControllerStatusGet,
     ResponseToWorkerExchange, ResponseToWorkerResultSubmit, ServiceId, ServiceVersion,
 };
+use serde_json::json;
 use std::collections::{HashMap, VecDeque};
 use std::env::args;
 use std::process::exit;
@@ -26,7 +23,7 @@ use tonic::{transport::Server, Request, Response, Status};
 pub struct GridServerImpl {
     /// A map from the job IDs to the ID of the client the job was submitted from.
     client_id_per_job_id: Mutex<HashMap<JobId, ClientId>>,
-    ///
+    /// Information for every client, per client ID.
     client_information_per_client_id: Mutex<HashMap<ClientId, ClientInformation>>,
     /// A map from the client ID to a map of the service version to its jobs.
     jobs_per_service_id_and_version:
@@ -99,7 +96,7 @@ impl GridServerImpl {
 
 /// The implementation of the server interface for the server.
 #[tonic::async_trait]
-impl Grid for GridServerImpl {
+impl GridServer for GridServerImpl {
     async fn client_fetch_results(
         &self,
         request: Request<RequestFromClientResultFetch>,
@@ -247,33 +244,10 @@ impl Grid for GridServerImpl {
             "results".to_string(),
             format!("{:?}", self.results_per_client_id.lock().unwrap()),
         );
-        // TODO: connected clients
-        //status.insert("", format!("", self.));
 
-        Ok(Response::new(ResponseToControllerStatusGet { status }))
-    }
-
-    async fn controller_stop_server(
-        &self,
-        request: Request<RequestFromControllerServerStop>,
-    ) -> Result<Response<ResponseToControllerServerStop>, Status> {
-        let request = request.get_ref();
-        let client_id = request.client_id;
-
-        // Update the client's last access time.
-        self.update_client_last_access_time(client_id);
-
-        info!("Shutting down due to request by client with ID {client_id}");
-
-        // TODO: shutdown delayed so that a response can be send.
-        exit(0);
-    }
-
-    async fn controller_stop_worker(
-        &self,
-        request: Request<RequestFromControllerWorkerStop>,
-    ) -> Result<Response<ResponseToControllerWorkerStop>, Status> {
-        todo!()
+        Ok(Response::new(ResponseToControllerStatusGet {
+            status: json!(status).to_string(),
+        }))
     }
 
     async fn worker_server_exchange(
@@ -281,13 +255,10 @@ impl Grid for GridServerImpl {
         request: Request<RequestFromWorkerExchange>,
     ) -> Result<Response<ResponseToWorkerExchange>, Status> {
         let request = request.get_ref();
-        let client_id = request.client_id;
+        let worker_client_id = request.client_id;
 
-        // Update the client's last access time.
-        self.update_client_last_access_time(client_id);
-
-        // TODO
-        let stop_worker = false;
+        // Update the grid worker client's last access time.
+        self.update_client_last_access_time(worker_client_id);
 
         {
             // There is a result from the worker.
@@ -314,20 +285,14 @@ impl Grid for GridServerImpl {
 
                             info!("Sending job with ID {job_id} to worker");
 
-                            return Ok(Response::new(ResponseToWorkerExchange {
-                                job: Some(job),
-                                stop_worker,
-                            }));
+                            return Ok(Response::new(ResponseToWorkerExchange { job: Some(job) }));
                         }
                     }
                 }
             }
         }
 
-        Ok(Response::new(ResponseToWorkerExchange {
-            job: None,
-            stop_worker,
-        }))
+        Ok(Response::new(ResponseToWorkerExchange { job: None }))
     }
 
     async fn worker_submit_result(
@@ -335,10 +300,10 @@ impl Grid for GridServerImpl {
         request: Request<RequestFromWorkerResultSubmit>,
     ) -> Result<Response<ResponseToWorkerResultSubmit>, Status> {
         let request = request.get_ref();
-        let client_id = request.client_id;
+        let worker_client_id = request.client_id;
 
         // Update the client's last access time.
-        self.update_client_last_access_time(client_id);
+        self.update_client_last_access_time(worker_client_id);
 
         // There is a result.
         if let Some(result) = &request.result {
@@ -358,17 +323,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Too few command line arguments are given.
     if command_line_arguments.len() < 2 {
-        error!("Please pass the server address.");
+        error!("Please pass the server socket address.");
         exit(-1);
     }
 
-    // Construct the socket address the command line argument,
+    // Construct the socket address from the command line argument,
     let socket_address = command_line_arguments[1].parse()?;
 
-    info!("Starting the server on \"{}\" ...", socket_address);
+    info!("Running the server on \"{}\" ...", socket_address);
 
     Server::builder()
-        .add_service(GridServer::new(GridServerImpl::new()))
+        .add_service(GridServerServer::new(GridServerImpl::new()))
         .serve(socket_address)
         .await?;
 

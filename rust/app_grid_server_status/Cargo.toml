@@ -1,11 +1,11 @@
 [package]
-name = "grid-control"
+name = "grid-server-status"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 env_logger = { workspace = true }
 grid_client = { path= "../lib_grid_client" }
-grid_server_interface = { path= "../lib_grid_server_interface" }
+grid_server_interface = { path= "../lib_interface_grid_server" }
 log = { workspace = true }
 tokio = { workspace = true }

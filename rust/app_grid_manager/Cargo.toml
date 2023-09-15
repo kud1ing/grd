@@ -1,15 +1,13 @@
 [package]
-name = "grid-server"
+name = "grid-manager"
 version = "0.1.0"
 authors = ["Lennart Kudling"]
 edition = "2021"
 
 [dependencies]
-chrono = { workspace = true }
 env_logger = { workspace = true }
-grid_server_interface = { path= "../lib_interface_grid_server" }
+grid_manager_interface = { path= "../lib_interface_grid_manager" }
 log = { workspace = true }
-serde_json = { workspace = true }
 tonic = { workspace = true }
 tokio = { workspace = true }
 

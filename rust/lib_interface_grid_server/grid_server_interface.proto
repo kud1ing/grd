@@ -1,5 +1,5 @@
 syntax = "proto3";
-package server_interface;
+package grid_server_interface;
 
 message Job {
   uint64 job_id = 1;
@@ -40,37 +40,6 @@ message ResponseToClientJobSubmit {
 
 // =====================================================================================================================
 
-message JobQuery {
-  uint32 service_id = 1;
-  uint32 service_version = 2;
-}
-
-// Sent regularly by a grid worker to the grid server in order to exchange jobs and results.
-message RequestFromWorkerExchange {
-  uint32 client_id = 1;
-  JobQuery query_job_from_server = 2;
-  Result result_from_worker = 3;
-}
-
-message ResponseToWorkerExchange {
-  Job job = 1;
-  bool stop_worker = 2;
-}
-
-// =====================================================================================================================
-
-// Sent by the grid worker to the grid server in order to send a result. This is a variant of
-// `RequestFromWorkerExchange` without accepting a job.
-message RequestFromWorkerResultSubmit {
-  uint32 client_id = 1;
-  Result result = 2;
-}
-
-message ResponseToWorkerResultSubmit {
-}
-
-// =====================================================================================================================
-
 // Sent by a grid client to a grid server in order to fetch results.
 message RequestFromClientResultFetch {
   uint32 client_id = 1;
@@ -88,39 +57,46 @@ message RequestFromControllerStatusGet {
 }
 
 message ResponseToControllerStatusGet {
-  map<string, string> status = 1;
+  string status = 1;
 }
 
 // =====================================================================================================================
 
-// Sent by a grid controller client to the grid server in order to stop it.
-message RequestFromControllerServerStop {
+message JobQuery {
+  uint32 service_id = 1;
+  uint32 service_version = 2;
+}
+
+// Sent regularly by a grid worker to the grid server in order to exchange jobs and results.
+message RequestFromWorkerExchange {
   uint32 client_id = 1;
+  JobQuery query_job_from_server = 2;
+  Result result_from_worker = 3;
 }
 
-message ResponseToControllerServerStop {
+message ResponseToWorkerExchange {
+  Job job = 1;
 }
 
 // =====================================================================================================================
 
-// Sent by a grid controller client to the grid server in order to stop it.
-message RequestFromControllerWorkerStop {
+// Sent by the grid worker to the grid server in order to send a result. This is a variant of
+// `RequestFromWorkerExchange` without accepting a job.
+message RequestFromWorkerResultSubmit {
   uint32 client_id = 1;
-  uint32 worker_client_id = 2;
+  Result result = 2;
 }
 
-message ResponseToControllerWorkerStop {
+message ResponseToWorkerResultSubmit {
 }
 
 // =====================================================================================================================
 
-service Grid {
+service GridServer {
   rpc ClientFetchResults (RequestFromClientResultFetch) returns (ResponseToClientResultFetch);
   rpc ClientRegister (RequestFromClientRegister) returns (ResponseToClientRegister);
   rpc ClientSubmitJob (RequestFromClientJobSubmit) returns (ResponseToClientJobSubmit);
   rpc ControllerGetStatus (RequestFromControllerStatusGet) returns (ResponseToControllerStatusGet);
-  rpc ControllerStopServer (RequestFromControllerServerStop) returns (ResponseToControllerServerStop);
-  rpc ControllerStopWorker (RequestFromControllerWorkerStop) returns (ResponseToControllerWorkerStop);
   rpc WorkerServerExchange (RequestFromWorkerExchange) returns (ResponseToWorkerExchange);
   rpc WorkerSubmitResult (RequestFromWorkerResultSubmit) returns (ResponseToWorkerResultSubmit);
 }
