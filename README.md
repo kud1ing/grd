@@ -13,16 +13,17 @@ in any language:
 See tonic's [dependencies](https://github.com/hyperium/tonic#dependencies)
 
 ## Backlog
-
-* Manager:
-  * [ ] `start_worker()`: determine the base path and start the worker 
-  * [ ] implement `get_status()`: running grid servers and grid workers
+ 
+* `app_grid_manager`: 
+  * implement `get_status()`:
     * https://docs.rs/sysinfo/latest/sysinfo/trait.SystemExt.html#method.processes_by_exact_name
-  * [ ] implement `start_worker()`
+    * [ ] determine running grid servers
+    * [ ] determine running grid workers
   * [ ] implement `stop_server()`
   * [ ] implement `stop_worker()`
   * [ ] Controller: connect to the manager
   * [ ] make it possible to upload libraries
+* [ ] implement `grid_manager_controller`
 * [ ] GUI:
   * Dioxus?
   * [ ] Upload/Exchange Service Libraries

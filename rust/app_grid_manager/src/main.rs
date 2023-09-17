@@ -7,21 +7,37 @@ use grid_manager_interface::{
     ResponseWorkerStop, WorkerConfiguration,
 };
 use std::env::{args, current_exe};
+use std::path::Path;
 use std::process::{exit, Command};
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
+///
+const GRID_WORKER_EXECUTABLE_NAME: &str = "grid-worker.exe";
+
 /// Starts a grid worker process with the given configuration.
 fn start_worker(worker_configuration: &WorkerConfiguration) {
-    // Determine the path to the executable of the current grid worker
-    // TODO: get the base path and call tbe worker
-    let grid_worker_executable_path = match current_exe() {
+    // Determine the path to the current grid manager executable.
+    let grid_manager_executable_path = match current_exe() {
         Ok(path_to_executable_of_current_grid_worker) => path_to_executable_of_current_grid_worker,
         Err(error) => {
-            error!("Could not get path to executable of the current grid worker: {error}");
+            error!("Could not get path to executable of the current grid manager: {error}");
             return;
         }
     };
+
+    // Get grid base path.
+    let grid_manager_executable_base_path = match grid_manager_executable_path.parent() {
+        None => {
+            error!("Could not get base path of the current grid manager executable");
+            return;
+        }
+        Some(grid_manager_executable_base_path) => grid_manager_executable_base_path,
+    };
+
+    // Construct the grid worker executable path.
+    let grid_worker_executable_path =
+        grid_manager_executable_base_path.join(GRID_WORKER_EXECUTABLE_NAME);
 
     // Try to start the grid worker according to the given configuration.
     if let Err(error) = Command::new(grid_worker_executable_path)
@@ -35,7 +51,7 @@ fn start_worker(worker_configuration: &WorkerConfiguration) {
     {
         error!("Could not start grid worker: {error}");
     } else {
-        info!("Started worker");
+        info!("Started grid worker");
     }
 }
 
@@ -54,30 +70,42 @@ impl GridManagerImpl {
 impl GridManager for GridManagerImpl {
     async fn get_status(
         &self,
-        _request: Request<RequestGetStatus>,
+        request: Request<RequestGetStatus>,
     ) -> Result<Response<ResponseGetStatus>, Status> {
+        let request = request.get_ref();
+
         // TODO: Determine running grid servers and grid workers.
         todo!()
     }
 
     async fn start_worker(
         &self,
-        _request: Request<RequestWorkerStart>,
+        request: Request<RequestWorkerStart>,
     ) -> Result<Response<ResponseWorkerStart>, Status> {
-        todo!()
+        let request = request.get_ref();
+
+        if let Some(worker_configuration) = &request.worker_configuration {
+            start_worker(worker_configuration);
+        }
+
+        Ok(Response::new(ResponseWorkerStart {}))
     }
 
     async fn stop_server(
         &self,
-        _request: Request<RequestServerStop>,
+        request: Request<RequestServerStop>,
     ) -> Result<Response<ResponseServerStop>, Status> {
+        let request = request.get_ref();
+
         todo!()
     }
 
     async fn stop_worker(
         &self,
-        _request: Request<RequestWorkerStop>,
+        request: Request<RequestWorkerStop>,
     ) -> Result<Response<ResponseWorkerStop>, Status> {
+        let request = request.get_ref();
+
         todo!()
     }
 }

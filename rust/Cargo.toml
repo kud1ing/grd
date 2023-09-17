@@ -1,9 +1,10 @@
 [workspace]
 
 members = [
-    "app_grid_server_status",
     "app_grid_manager",
+    "app_grid_manager_controller",
     "app_grid_server",
+    "app_grid_server_status",
     "app_grid_worker",
     "lib_grid_client",
     "lib_grid_client_cpp",
