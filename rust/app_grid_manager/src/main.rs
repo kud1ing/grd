@@ -13,6 +13,9 @@ use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
 ///
+const GRID_SERVER_EXECUTABLE_NAME: &str = "grid-server.exe";
+
+///
 const GRID_WORKER_EXECUTABLE_NAME: &str = "grid-worker.exe";
 
 /// Starts a grid worker process with the given configuration.
@@ -54,6 +57,8 @@ fn start_worker(worker_configuration: &WorkerConfiguration) {
         info!("Started grid worker");
     }
 }
+
+// =================================================================================================
 
 /// The grid manager.
 pub struct GridManagerImpl {}
