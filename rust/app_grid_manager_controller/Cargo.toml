@@ -1,5 +1,5 @@
 [package]
-name = "grid_manager_controller"
+name = "grid-manager-controller"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,3 +8,4 @@ env_logger = { workspace = true }
 grid_manager_interface = { path= "../lib_interface_grid_manager" }
 log = { workspace = true }
 tokio = { workspace = true }
+tonic = { workspace = true }

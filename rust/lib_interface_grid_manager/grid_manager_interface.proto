@@ -1,6 +1,10 @@
 syntax = "proto3";
 package grid_manager_interface;
 
+message ServerConfiguration {
+  string server_address = 1;
+}
+
 message WorkerConfiguration {
   string server_address = 1;
   uint32 service_id = 2;
@@ -10,13 +14,35 @@ message WorkerConfiguration {
 
 // =====================================================================================================================
 
+message ServerStatus {
+  uint64 server_pid = 1;
+  ServerConfiguration server_configuration = 2;
+}
+
+message WorkerStatus {
+  uint64 worker_pid = 1;
+  WorkerConfiguration worker_configuration = 2;
+}
+
 // Sent by a grid controller in order to get the status.
 message RequestGetStatus {
   uint32 client_id = 1;
 }
 
 message ResponseGetStatus {
-  // TODO
+  repeated ServerStatus server_status = 1;
+  repeated WorkerStatus worker_status = 2;
+}
+
+// =====================================================================================================================
+
+// Sent by a grid controller in order to stop the worker with the given client ID.
+message RequestServerStart {
+  uint32 client_id = 1;
+  ServerConfiguration server_configuration = 3;
+}
+
+message ResponseServerStart {
 }
 
 // =====================================================================================================================
@@ -24,6 +50,7 @@ message ResponseGetStatus {
 // Sent by a grid controller in order to stop a server.
 message RequestServerStop {
   uint32 client_id = 1;
+  uint64 server_pid = 2;
 }
 
 message ResponseServerStop {
@@ -34,7 +61,6 @@ message ResponseServerStop {
 // Sent by a grid controller in order to stop the worker with the given client ID.
 message RequestWorkerStart {
   uint32 client_id = 1;
-  uint32 worker_client_id = 2;
   WorkerConfiguration worker_configuration = 3;
 }
 
@@ -46,7 +72,7 @@ message ResponseWorkerStart {
 // Sent by a grid controller in order to stop the worker with the given client ID.
 message RequestWorkerStop {
   uint32 client_id = 1;
-  uint32 worker_client_id = 2;
+  uint64 worker_pid = 2;
 }
 
 message ResponseWorkerStop {
@@ -56,6 +82,7 @@ message ResponseWorkerStop {
 
 service GridManager {
   rpc GetStatus (RequestGetStatus) returns (ResponseGetStatus);
+  rpc StartServer (RequestServerStart) returns (ResponseServerStart);
   rpc StartWorker (RequestWorkerStart) returns (ResponseWorkerStart);
   rpc StopServer (RequestServerStop) returns (ResponseServerStop);
   rpc StopWorker (RequestWorkerStop) returns (ResponseWorkerStop);

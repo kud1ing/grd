@@ -3,6 +3,7 @@ use grid_server_interface::ServiceId;
 use log::{error, info};
 use std::env::args;
 use std::process::exit;
+use std::ptr::addr_of_mut;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -13,7 +14,7 @@ type ServiceFunction = unsafe extern "C" fn(
     data_in: *const libc::c_void,
     size_in: libc::c_longlong,
     data_out: *mut libc::c_void,
-    size_out: libc::c_longlong,
+    size_out: *mut libc::c_longlong,
 );
 
 ///
@@ -46,15 +47,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let service_version = command_line_arguments[3].parse()?;
     let path_service_library = &command_line_arguments[4];
 
-    // TODO
-    /*
     // Try to load the service library.
     let service_library = unsafe { libloading::Library::new(path_service_library)? };
 
     // Try to get the service function within the service library.
-    let _service_function: libloading::Symbol<ServiceFunction> =
+    let service_function: libloading::Symbol<ServiceFunction> =
         unsafe { service_library.get(b"service_function")? };
-     */
 
     // Try to connect to the server.
     let mut grid_client = connect_async_grid_client(
@@ -87,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let worker_server_exchange_response = worker_server_exchange_response.get_ref();
 
-        let _job =
+        let job =
             // There is a new job from the server.
             if let Some(job) = &worker_server_exchange_response.job {
                 job
@@ -99,8 +97,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 continue;
             };
 
-        // TODO: Process the job with `service_function()`.
-        result = None;
+        unsafe {
+            let data_in: *const libc::c_void = job.job_data.as_ptr() as *const libc::c_void;
+            let size_in: libc::c_longlong = job.job_data.len().try_into().unwrap();
+            let mut data_out: libc::c_longlong = 0;
+            let mut size_out: libc::c_longlong = 0;
+
+            // Process the job with the service function.
+            service_function(
+                data_in,
+                size_in,
+                addr_of_mut!(data_out) as *mut libc::c_void,
+                addr_of_mut!(size_out),
+            );
+
+            // TODO: Call the libraries free function.
+
+            // TODO
+            result = None;
+        }
     }
 
     info!("Done.");

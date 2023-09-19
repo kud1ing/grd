@@ -5,3 +5,6 @@ pub mod grid_manager_interface {
 
 pub use grid_manager_interface::grid_manager_server::{GridManager, GridManagerServer};
 pub use grid_manager_interface::*;
+
+/// The grid client ID type.
+pub type ClientId = u32;

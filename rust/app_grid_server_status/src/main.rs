@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let command_line_arguments: Vec<_> = args().collect();
 
     // Too few command line arguments are given.
-    if command_line_arguments.len() < 1 {
+    if command_line_arguments.is_empty() {
         print_usage_and_stop();
     }
 

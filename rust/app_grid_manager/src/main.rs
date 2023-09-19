@@ -2,21 +2,79 @@
 extern crate log;
 
 use grid_manager_interface::{
-    GridManager, GridManagerServer, RequestGetStatus, RequestServerStop, RequestWorkerStart,
-    RequestWorkerStop, ResponseGetStatus, ResponseServerStop, ResponseWorkerStart,
-    ResponseWorkerStop, WorkerConfiguration,
+    GridManager, GridManagerServer, RequestGetStatus, RequestServerStart, RequestServerStop,
+    RequestWorkerStart, RequestWorkerStop, ResponseGetStatus, ResponseServerStart,
+    ResponseServerStop, ResponseWorkerStart, ResponseWorkerStop, ServerConfiguration, ServerStatus,
+    WorkerConfiguration, WorkerStatus,
 };
+use lazy_static::lazy_static;
 use std::env::{args, current_exe};
-use std::path::Path;
 use std::process::{exit, Command};
+use std::sync::Mutex;
+use sysinfo::{Pid, PidExt, Process, ProcessExt, System, SystemExt};
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
-///
-const GRID_SERVER_EXECUTABLE_NAME: &str = "grid-server.exe";
+lazy_static! {
+    static ref SYSTEM: Mutex<System> = Mutex::new(System::new());
+}
+
+const GRID_SERVER_EXECUTABLE_NAME: &str = if cfg!(unix) {
+    "grid-server"
+} else {
+    "grid-server.exe"
+};
+
+const GRID_WORKER_EXECUTABLE_NAME: &str = if cfg!(unix) {
+    "grid-worker"
+} else {
+    "grid-worker.exe"
+};
 
 ///
-const GRID_WORKER_EXECUTABLE_NAME: &str = "grid-worker.exe";
+fn pid_from_u64(process_id: u64) -> Pid {
+    Pid::from(process_id as usize)
+}
+
+///
+fn process_id_from_process(process: &Process) -> u64 {
+    process.pid().as_u32() as u64
+}
+
+/// Starts a grid server process with the given configuration.
+fn start_server(server_configuration: &ServerConfiguration) {
+    // Determine the path to the current grid manager executable.
+    let grid_manager_executable_path = match current_exe() {
+        Ok(path_to_executable_of_current_grid_worker) => path_to_executable_of_current_grid_worker,
+        Err(error) => {
+            error!("Could not get path to executable of the current grid manager: {error}");
+            return;
+        }
+    };
+
+    // Get grid base path.
+    let grid_manager_executable_base_path = match grid_manager_executable_path.parent() {
+        None => {
+            error!("Could not get base path of the current grid manager executable");
+            return;
+        }
+        Some(grid_manager_executable_base_path) => grid_manager_executable_base_path,
+    };
+
+    // Construct the grid server executable path.
+    let grid_server_executable_path =
+        grid_manager_executable_base_path.join(GRID_SERVER_EXECUTABLE_NAME);
+
+    // Try to start the grid server according to the given configuration.
+    if let Err(error) = Command::new(grid_server_executable_path)
+        .args([server_configuration.server_address.clone()])
+        .spawn()
+    {
+        error!("Could not start grid server: {error}");
+    } else {
+        info!("Started grid server");
+    }
+}
 
 /// Starts a grid worker process with the given configuration.
 fn start_worker(worker_configuration: &WorkerConfiguration) {
@@ -75,12 +133,103 @@ impl GridManagerImpl {
 impl GridManager for GridManagerImpl {
     async fn get_status(
         &self,
-        request: Request<RequestGetStatus>,
+        _request: Request<RequestGetStatus>,
     ) -> Result<Response<ResponseGetStatus>, Status> {
-        let request = request.get_ref();
+        // TODO handle `request.client_id`?
 
-        // TODO: Determine running grid servers and grid workers.
-        todo!()
+        let mut system = SYSTEM.lock().unwrap();
+        system.refresh_processes();
+
+        // Determine the running grid server processes.
+        let server_status = {
+            let mut server_status = vec![];
+
+            // Iterate over all grid server processes.
+            for process in system.processes_by_exact_name(GRID_SERVER_EXECUTABLE_NAME) {
+                // Try to get the server address.
+                let server_address = process
+                    .cmd()
+                    .get(1)
+                    .cloned()
+                    .unwrap_or_else(|| "n/a".to_string());
+
+                server_status.push(ServerStatus {
+                    server_pid: process_id_from_process(process),
+                    server_configuration: Some(ServerConfiguration { server_address }),
+                });
+            }
+
+            server_status
+        };
+
+        // Determine the running grid server processes.
+        let mut worker_status = {
+            let mut worker_status = vec![];
+
+            // Iterate over all grid worker processes.
+            for process in system.processes_by_exact_name(GRID_WORKER_EXECUTABLE_NAME) {
+                // Try to get the server address.
+                let server_address = process
+                    .cmd()
+                    .get(1)
+                    .cloned()
+                    .unwrap_or_else(|| "n/a".to_string());
+
+                let service_id = process
+                    .cmd()
+                    .get(2)
+                    .cloned()
+                    .unwrap_or_else(|| "0".to_string())
+                    .parse()
+                    .unwrap_or(0);
+
+                let service_version = process
+                    .cmd()
+                    .get(3)
+                    .cloned()
+                    .unwrap_or_else(|| "0".to_string())
+                    .parse()
+                    .unwrap_or(0);
+
+                let service_library_path = process
+                    .cmd()
+                    .get(4)
+                    .cloned()
+                    .unwrap_or_else(|| "n/a".to_string());
+
+                worker_status.push(WorkerStatus {
+                    worker_pid: process_id_from_process(process),
+                    worker_configuration: Some(WorkerConfiguration {
+                        server_address,
+                        service_id,
+                        service_library_path,
+                        service_version,
+                    }),
+                });
+            }
+
+            worker_status
+        };
+
+        Ok(Response::new(ResponseGetStatus {
+            server_status,
+            worker_status,
+        }))
+    }
+
+    async fn start_server(
+        &self,
+        request: Request<RequestServerStart>,
+    ) -> Result<Response<ResponseServerStart>, Status> {
+        let request = request.get_ref();
+        // TODO handle `request.client_id`?
+
+        // A server configuration is given.
+        if let Some(server_configuration) = &request.server_configuration {
+            start_server(server_configuration);
+        }
+
+        Ok(Response::new(ResponseServerStart {}))
     }
 
     async fn start_worker(
@@ -88,7 +237,9 @@ impl GridManager for GridManagerImpl {
         request: Request<RequestWorkerStart>,
     ) -> Result<Response<ResponseWorkerStart>, Status> {
         let request = request.get_ref();
+        // TODO handle `request.client_id`?
 
+        // A worker configuration is given.
         if let Some(worker_configuration) = &request.worker_configuration {
             start_worker(worker_configuration);
         }
@@ -101,8 +252,19 @@ impl GridManager for GridManagerImpl {
         request: Request<RequestServerStop>,
     ) -> Result<Response<ResponseServerStop>, Status> {
         let request = request.get_ref();
+        // TODO handle `request.client_id`?
+        let server_pid = pid_from_u64(request.server_pid);
 
-        todo!()
+        let mut system = SYSTEM.lock().unwrap();
+        system.refresh_processes();
+
+        // There is a process with the given PID.
+        if let Some(server_process) = system.process(server_pid) {
+            // Try to kill the grid server process.
+            server_process.kill();
+        }
+
+        Ok(Response::new(ResponseServerStop {}))
     }
 
     async fn stop_worker(
@@ -110,8 +272,19 @@ impl GridManager for GridManagerImpl {
         request: Request<RequestWorkerStop>,
     ) -> Result<Response<ResponseWorkerStop>, Status> {
         let request = request.get_ref();
+        // TODO handle `request.client_id`?
+        let worker_pid = pid_from_u64(request.worker_pid);
 
-        todo!()
+        let mut system = SYSTEM.lock().unwrap();
+        system.refresh_processes();
+
+        // There is a process with the given PID.
+        if let Some(worker_process) = system.process(worker_pid) {
+            // Try to kill the grid worker process.
+            worker_process.kill();
+        }
+
+        Ok(Response::new(ResponseWorkerStop {}))
     }
 }
 
