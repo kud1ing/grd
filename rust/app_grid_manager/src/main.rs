@@ -2,13 +2,17 @@
 extern crate log;
 
 use grid_manager_interface::{
-    GridManager, GridManagerServer, RequestGetStatus, RequestServerStart, RequestServerStop,
-    RequestWorkerStart, RequestWorkerStop, ResponseGetStatus, ResponseServerStart,
-    ResponseServerStop, ResponseWorkerStart, ResponseWorkerStop, ServerConfiguration, ServerStatus,
-    WorkerConfiguration, WorkerStatus,
+    GridManager, GridManagerServer, RequestAcceptServiceLibrary, RequestGetStatus,
+    RequestServerStart, RequestServerStop, RequestWorkerStart, RequestWorkerStop,
+    ResponseAcceptServiceLibrary, ResponseGetStatus, ResponseServerStart, ResponseServerStop,
+    ResponseWorkerStart, ResponseWorkerStop, ServerConfiguration, ServerStatus,
+    ServiceLibraryConfiguration, WorkerConfiguration, WorkerStatus,
 };
 use lazy_static::lazy_static;
 use std::env::{args, current_exe};
+use std::fs::{create_dir_all, File};
+use std::io::Write;
+use std::path::PathBuf;
 use std::process::{exit, Command};
 use std::sync::Mutex;
 use sysinfo::{Pid, PidExt, Process, ProcessExt, System, SystemExt};
@@ -17,6 +21,11 @@ use tonic::{Request, Response, Status};
 
 lazy_static! {
     static ref SYSTEM: Mutex<System> = Mutex::new(System::new());
+    static ref LIBRARIES_PATH: PathBuf = {
+        let mut path = PathBuf::new();
+        path.push("libraries");
+        path
+    };
 }
 
 const GRID_SERVER_EXECUTABLE_NAME: &str = if cfg!(unix) {
@@ -31,6 +40,12 @@ const GRID_WORKER_EXECUTABLE_NAME: &str = if cfg!(unix) {
     "grid-worker.exe"
 };
 
+const SERVICE_LIBRARY_NAME: &str = if cfg!(unix) {
+    "service_library.so"
+} else {
+    "service_library.dll"
+};
+
 ///
 fn pid_from_u64(process_id: u64) -> Pid {
     Pid::from(process_id as usize)
@@ -39,6 +54,16 @@ fn pid_from_u64(process_id: u64) -> Pid {
 ///
 fn process_id_from_process(process: &Process) -> u64 {
     process.pid().as_u32() as u64
+}
+
+///
+fn service_library_path(service_id: u32, service_version: u32) -> PathBuf {
+    let mut path = LIBRARIES_PATH.clone();
+    path.push(service_id.to_string());
+    path.push(service_version.to_string());
+    path.push(SERVICE_LIBRARY_NAME);
+
+    path
 }
 
 /// Starts a grid server process with the given configuration.
@@ -100,19 +125,29 @@ fn start_worker(worker_configuration: &WorkerConfiguration) {
     let grid_worker_executable_path =
         grid_manager_executable_base_path.join(GRID_WORKER_EXECUTABLE_NAME);
 
-    // Try to start the grid worker according to the given configuration.
-    if let Err(error) = Command::new(grid_worker_executable_path)
-        .args([
-            worker_configuration.server_address.clone(),
-            worker_configuration.service_id.to_string(),
-            worker_configuration.service_version.to_string(),
-            worker_configuration.service_library_path.clone(),
-        ])
-        .spawn()
+    // A service library configuration is given.
+    if let Some(service_library_configuration) = &worker_configuration.service_library_configuration
     {
-        error!("Could not start grid worker: {error}");
-    } else {
-        info!("Started grid worker");
+        // Try to start the grid worker according to the given configuration.
+        if let Err(error) = Command::new(grid_worker_executable_path)
+            .args([
+                worker_configuration.server_address.clone(),
+                service_library_configuration.service_id.to_string(),
+                service_library_configuration.service_version.to_string(),
+                service_library_path(
+                    service_library_configuration.service_id,
+                    service_library_configuration.service_version,
+                )
+                .into_os_string()
+                .into_string()
+                .unwrap(),
+            ])
+            .spawn()
+        {
+            error!("Could not start grid worker: {error}");
+        } else {
+            info!("Started grid worker");
+        }
     }
 }
 
@@ -131,6 +166,63 @@ impl GridManagerImpl {
 /// The implementation of the manager interface for the manager.
 #[tonic::async_trait]
 impl GridManager for GridManagerImpl {
+    async fn accept_service_library(
+        &self,
+        request: Request<RequestAcceptServiceLibrary>,
+    ) -> Result<Response<ResponseAcceptServiceLibrary>, Status> {
+        let request = request.get_ref();
+        // TODO handle `request.client_id`?
+
+        if let Some(service_library_configuration) = &request.service_library_configuration {
+            // Determine the service library path.
+            let service_library_path = service_library_path(
+                service_library_configuration.service_id,
+                service_library_configuration.service_version,
+            );
+
+            // The service library path has a parent.
+            if let Some(parent) = service_library_path.parent() {
+                // The parent does not exist.
+                if !parent.exists() {
+                    // Try to create the parent directory.
+                    match create_dir_all(parent) {
+                        Ok(_) => {}
+                        Err(error) => {
+                            error!(
+                                "Could not create service library directory \"{}\": {error}",
+                                parent.display()
+                            );
+
+                            // TODO: add an error to the response
+                            return Ok(Response::new(ResponseAcceptServiceLibrary {}));
+                        }
+                    }
+                }
+
+                // Write the service library.
+                {
+                    let mut file = File::create(&service_library_path)?;
+
+                    // Try to write the service library data.
+                    match file.write_all(&request.service_library_data) {
+                        Ok(_) => {}
+                        Err(error) => {
+                            error!(
+                                "Could not write the service library \"{}\": {error}",
+                                parent.display()
+                            );
+
+                            // TODO: add an error to the response
+                            return Ok(Response::new(ResponseAcceptServiceLibrary {}));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(Response::new(ResponseAcceptServiceLibrary {}))
+    }
+
     async fn get_status(
         &self,
         _request: Request<RequestGetStatus>,
@@ -163,7 +255,7 @@ impl GridManager for GridManagerImpl {
         };
 
         // Determine the running grid server processes.
-        let mut worker_status = {
+        let worker_status = {
             let mut worker_status = vec![];
 
             // Iterate over all grid worker processes.
@@ -191,19 +283,14 @@ impl GridManager for GridManagerImpl {
                     .parse()
                     .unwrap_or(0);
 
-                let service_library_path = process
-                    .cmd()
-                    .get(4)
-                    .cloned()
-                    .unwrap_or_else(|| "n/a".to_string());
-
                 worker_status.push(WorkerStatus {
                     worker_pid: process_id_from_process(process),
                     worker_configuration: Some(WorkerConfiguration {
                         server_address,
-                        service_id,
-                        service_library_path,
-                        service_version,
+                        service_library_configuration: Some(ServiceLibraryConfiguration {
+                            service_id,
+                            service_version,
+                        }),
                     }),
                 });
             }

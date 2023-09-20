@@ -1,8 +1,9 @@
 use grid_manager_interface::grid_manager_client::GridManagerClient;
 use grid_manager_interface::{
-    ClientId, RequestGetStatus, RequestServerStart, RequestServerStop, RequestWorkerStart,
-    RequestWorkerStop, ResponseGetStatus, ResponseServerStart, ResponseServerStop,
-    ResponseWorkerStart, ResponseWorkerStop, ServerConfiguration, WorkerConfiguration,
+    ClientId, RequestAcceptServiceLibrary, RequestGetStatus, RequestServerStart, RequestServerStop,
+    RequestWorkerStart, RequestWorkerStop, ResponseAcceptServiceLibrary, ResponseGetStatus,
+    ResponseServerStart, ResponseServerStop, ResponseWorkerStart, ResponseWorkerStop,
+    ServerConfiguration, ServiceLibraryConfiguration, WorkerConfiguration,
 };
 use tonic::transport::Channel;
 use tonic::{Request, Response, Status};
@@ -39,6 +40,25 @@ pub async fn connect_async_manager_client(
 
 impl AsyncManagerClient {
     ///
+    pub async fn accept_service_library(
+        &mut self,
+        service_id: u32,
+        service_version: u32,
+        service_library_data: Vec<u8>,
+    ) -> Result<Response<ResponseAcceptServiceLibrary>, Status> {
+        self.grid_client
+            .accept_service_library(Request::new(RequestAcceptServiceLibrary {
+                client_id: self.client_id,
+                service_library_data,
+                service_library_configuration: Some(ServiceLibraryConfiguration {
+                    service_id,
+                    service_version,
+                }),
+            }))
+            .await
+    }
+
+    ///
     pub async fn get_status(&mut self) -> Result<Response<ResponseGetStatus>, Status> {
         self.grid_client
             .get_status(Request::new(RequestGetStatus {
@@ -66,16 +86,16 @@ impl AsyncManagerClient {
         server_address: String,
         service_id: u32,
         service_version: u32,
-        service_library_path: String,
     ) -> Result<Response<ResponseWorkerStart>, Status> {
         self.grid_client
             .start_worker(Request::new(RequestWorkerStart {
                 client_id: self.client_id,
                 worker_configuration: Some(WorkerConfiguration {
                     server_address,
-                    service_id,
-                    service_library_path,
-                    service_version,
+                    service_library_configuration: Some(ServiceLibraryConfiguration {
+                        service_id,
+                        service_version,
+                    }),
                 }),
             }))
             .await

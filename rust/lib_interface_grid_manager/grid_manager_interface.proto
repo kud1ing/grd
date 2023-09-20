@@ -5,11 +5,26 @@ message ServerConfiguration {
   string server_address = 1;
 }
 
+message ServiceLibraryConfiguration {
+  uint32 service_id = 1;
+  uint32 service_version = 2;
+}
+
 message WorkerConfiguration {
   string server_address = 1;
-  uint32 service_id = 2;
-  string service_library_path = 3;
-  uint32 service_version = 4;
+  ServiceLibraryConfiguration service_library_configuration = 2;
+}
+
+// =====================================================================================================================
+
+// Sent by a grid manager controller in order to distribute a service library.
+message RequestAcceptServiceLibrary {
+  uint32 client_id = 1;
+  bytes service_library_data = 2;
+  ServiceLibraryConfiguration service_library_configuration = 3;
+}
+
+message ResponseAcceptServiceLibrary {
 }
 
 // =====================================================================================================================
@@ -24,7 +39,7 @@ message WorkerStatus {
   WorkerConfiguration worker_configuration = 2;
 }
 
-// Sent by a grid controller in order to get the status.
+// Sent by a grid manager controller in order to get the status.
 message RequestGetStatus {
   uint32 client_id = 1;
 }
@@ -36,7 +51,7 @@ message ResponseGetStatus {
 
 // =====================================================================================================================
 
-// Sent by a grid controller in order to stop the worker with the given client ID.
+// Sent by a grid manager controller in order to start a grid server with the given configuration.
 message RequestServerStart {
   uint32 client_id = 1;
   ServerConfiguration server_configuration = 3;
@@ -47,7 +62,7 @@ message ResponseServerStart {
 
 // =====================================================================================================================
 
-// Sent by a grid controller in order to stop a server.
+// Sent by a grid manager controller in order to stop a grid server with the given process ID.
 message RequestServerStop {
   uint32 client_id = 1;
   uint64 server_pid = 2;
@@ -58,7 +73,7 @@ message ResponseServerStop {
 
 // =====================================================================================================================
 
-// Sent by a grid controller in order to stop the worker with the given client ID.
+// Sent by a grid manager controller in order to start a grid worker with the given configuration.
 message RequestWorkerStart {
   uint32 client_id = 1;
   WorkerConfiguration worker_configuration = 3;
@@ -69,7 +84,7 @@ message ResponseWorkerStart {
 
 // =====================================================================================================================
 
-// Sent by a grid controller in order to stop the worker with the given client ID.
+// Sent by a grid manager controller in order to stop the grid worker with the given process ID.
 message RequestWorkerStop {
   uint32 client_id = 1;
   uint64 worker_pid = 2;
@@ -81,6 +96,7 @@ message ResponseWorkerStop {
 // =====================================================================================================================
 
 service GridManager {
+  rpc AcceptServiceLibrary (RequestAcceptServiceLibrary) returns (ResponseAcceptServiceLibrary);
   rpc GetStatus (RequestGetStatus) returns (ResponseGetStatus);
   rpc StartServer (RequestServerStart) returns (ResponseServerStart);
   rpc StartWorker (RequestWorkerStart) returns (ResponseWorkerStart);
