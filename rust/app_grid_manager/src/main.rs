@@ -20,12 +20,14 @@ use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
 lazy_static! {
-    static ref SYSTEM: Mutex<System> = Mutex::new(System::new());
+    // Determine the parent path of the current executable's path.
+    static ref GRID_BASE_PATH: PathBuf = current_exe().unwrap().parent().unwrap().to_path_buf();
     static ref LIBRARIES_PATH: PathBuf = {
-        let mut path = PathBuf::new();
+        let mut path = GRID_BASE_PATH.clone();
         path.push("libraries");
         path
     };
+    static ref SYSTEM: Mutex<System> = Mutex::new(System::new());
 }
 
 const GRID_SERVER_EXECUTABLE_NAME: &str = if cfg!(unix) {
@@ -68,27 +70,8 @@ fn service_library_path(service_id: u32, service_version: u32) -> PathBuf {
 
 /// Starts a grid server process with the given configuration.
 fn start_server(server_configuration: &ServerConfiguration) {
-    // Determine the path to the current grid manager executable.
-    let grid_manager_executable_path = match current_exe() {
-        Ok(path_to_executable_of_current_grid_worker) => path_to_executable_of_current_grid_worker,
-        Err(error) => {
-            error!("Could not get path to executable of the current grid manager: {error}");
-            return;
-        }
-    };
-
-    // Get grid base path.
-    let grid_manager_executable_base_path = match grid_manager_executable_path.parent() {
-        None => {
-            error!("Could not get base path of the current grid manager executable");
-            return;
-        }
-        Some(grid_manager_executable_base_path) => grid_manager_executable_base_path,
-    };
-
     // Construct the grid server executable path.
-    let grid_server_executable_path =
-        grid_manager_executable_base_path.join(GRID_SERVER_EXECUTABLE_NAME);
+    let grid_server_executable_path = GRID_BASE_PATH.clone().join(GRID_SERVER_EXECUTABLE_NAME);
 
     // Try to start the grid server according to the given configuration.
     if let Err(error) = Command::new(grid_server_executable_path)
@@ -103,27 +86,8 @@ fn start_server(server_configuration: &ServerConfiguration) {
 
 /// Starts a grid worker process with the given configuration.
 fn start_worker(worker_configuration: &WorkerConfiguration) {
-    // Determine the path to the current grid manager executable.
-    let grid_manager_executable_path = match current_exe() {
-        Ok(path_to_executable_of_current_grid_worker) => path_to_executable_of_current_grid_worker,
-        Err(error) => {
-            error!("Could not get path to executable of the current grid manager: {error}");
-            return;
-        }
-    };
-
-    // Get grid base path.
-    let grid_manager_executable_base_path = match grid_manager_executable_path.parent() {
-        None => {
-            error!("Could not get base path of the current grid manager executable");
-            return;
-        }
-        Some(grid_manager_executable_base_path) => grid_manager_executable_base_path,
-    };
-
     // Construct the grid worker executable path.
-    let grid_worker_executable_path =
-        grid_manager_executable_base_path.join(GRID_WORKER_EXECUTABLE_NAME);
+    let grid_worker_executable_path = GRID_BASE_PATH.clone().join(GRID_WORKER_EXECUTABLE_NAME);
 
     // A service library configuration is given.
     if let Some(service_library_configuration) = &worker_configuration.service_library_configuration
@@ -182,19 +146,27 @@ impl GridManager for GridManagerImpl {
 
             // The service library path has a parent.
             if let Some(parent) = service_library_path.parent() {
-                // The parent does not exist.
+                // The service library path does not exist.
                 if !parent.exists() {
                     // Try to create the parent directory.
                     match create_dir_all(parent) {
-                        Ok(_) => {}
+                        Ok(_) => {
+                            info!(
+                                "Created the service library directory \"{}\"",
+                                parent.display()
+                            );
+                        }
                         Err(error) => {
-                            error!(
-                                "Could not create service library directory \"{}\": {error}",
+                            let error_message = format!(
+                                "Could not create the service library directory \"{}\": {error}",
                                 parent.display()
                             );
 
-                            // TODO: add an error to the response
-                            return Ok(Response::new(ResponseAcceptServiceLibrary {}));
+                            error!("{}", &error_message);
+
+                            return Ok(Response::new(ResponseAcceptServiceLibrary {
+                                error_message: Some(error_message),
+                            }));
                         }
                     }
                 }
@@ -205,22 +177,59 @@ impl GridManager for GridManagerImpl {
 
                     // Try to write the service library data.
                     match file.write_all(&request.service_library_data) {
-                        Ok(_) => {}
+                        Ok(_) => {
+                            info!(
+                                "Wrote the service library \"{}\"",
+                                service_library_path.display()
+                            );
+
+                            return Ok(Response::new(ResponseAcceptServiceLibrary {
+                                error_message: None,
+                            }));
+                        }
                         Err(error) => {
-                            error!(
+                            let error_message = format!(
                                 "Could not write the service library \"{}\": {error}",
                                 parent.display()
                             );
 
-                            // TODO: add an error to the response
-                            return Ok(Response::new(ResponseAcceptServiceLibrary {}));
+                            error!("{}", &error_message);
+
+                            return Ok(Response::new(ResponseAcceptServiceLibrary {
+                                error_message: Some(error_message),
+                            }));
                         }
                     }
                 }
             }
+            // The service library path has no parent.
+            else {
+                let error_message =
+                    "Could not determine the service library directory path".to_string();
+
+                error!("{}", &error_message);
+
+                return Ok(Response::new(ResponseAcceptServiceLibrary {
+                    error_message: Some(error_message),
+                }));
+            }
+
+            let error_message = "`accept_service_library()`: Unhandled".to_string();
+
+            error!("{}", &error_message);
+
+            return Ok(Response::new(ResponseAcceptServiceLibrary {
+                error_message: Some(error_message),
+            }));
         }
 
-        Ok(Response::new(ResponseAcceptServiceLibrary {}))
+        let error_message = "No service library configuration given".to_string();
+
+        error!("{}", &error_message);
+
+        Ok(Response::new(ResponseAcceptServiceLibrary {
+            error_message: Some(error_message),
+        }))
     }
 
     async fn get_status(
@@ -314,9 +323,15 @@ impl GridManager for GridManagerImpl {
         // A server configuration is given.
         if let Some(server_configuration) = &request.server_configuration {
             start_server(server_configuration);
+
+            return Ok(Response::new(ResponseServerStart {
+                error_message: None,
+            }));
         }
 
-        Ok(Response::new(ResponseServerStart {}))
+        Ok(Response::new(ResponseServerStart {
+            error_message: Some("No server configuration given".to_string()),
+        }))
     }
 
     async fn start_worker(
@@ -329,9 +344,15 @@ impl GridManager for GridManagerImpl {
         // A worker configuration is given.
         if let Some(worker_configuration) = &request.worker_configuration {
             start_worker(worker_configuration);
+
+            return Ok(Response::new(ResponseWorkerStart {
+                error_message: None,
+            }));
         }
 
-        Ok(Response::new(ResponseWorkerStart {}))
+        Ok(Response::new(ResponseWorkerStart {
+            error_message: Some("No worker configuration given".to_string()),
+        }))
     }
 
     async fn stop_server(
@@ -349,9 +370,14 @@ impl GridManager for GridManagerImpl {
         if let Some(server_process) = system.process(server_pid) {
             // Try to kill the grid server process.
             server_process.kill();
+            return Ok(Response::new(ResponseServerStop {
+                error_message: None,
+            }));
         }
 
-        Ok(Response::new(ResponseServerStop {}))
+        Ok(Response::new(ResponseServerStop {
+            error_message: Some("No server process with the given process ID".to_string()),
+        }))
     }
 
     async fn stop_worker(
@@ -369,9 +395,14 @@ impl GridManager for GridManagerImpl {
         if let Some(worker_process) = system.process(worker_pid) {
             // Try to kill the grid worker process.
             worker_process.kill();
+            return Ok(Response::new(ResponseWorkerStop {
+                error_message: None,
+            }));
         }
 
-        Ok(Response::new(ResponseWorkerStop {}))
+        Ok(Response::new(ResponseWorkerStop {
+            error_message: Some("No worker process with the given process ID".to_string()),
+        }))
     }
 }
 
@@ -384,17 +415,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Too few command line arguments are given.
     if command_line_arguments.len() < 2 {
-        error!("Please pass the manager socket address.");
+        error!("Please pass the grid manager socket address.");
         exit(-1);
     }
 
     // Construct the socket address from the command line argument,
     let socket_address = command_line_arguments[1].parse()?;
 
-    info!("Running the manager on \"{}\" ...", socket_address);
+    info!("Running the grid manager on \"{}\" ...", socket_address);
 
     Server::builder()
-        .add_service(GridManagerServer::new(GridManagerImpl::new()))
+        .add_service(
+            // Lift the 4 MB limit so that bigger service libraries can be uploaded.
+            GridManagerServer::new(GridManagerImpl::new()).max_decoding_message_size(usize::MAX),
+        )
         .serve(socket_address)
         .await?;
 

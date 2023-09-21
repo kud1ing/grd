@@ -25,6 +25,7 @@ message RequestAcceptServiceLibrary {
 }
 
 message ResponseAcceptServiceLibrary {
+  optional string error_message = 1;
 }
 
 // =====================================================================================================================
@@ -58,6 +59,7 @@ message RequestServerStart {
 }
 
 message ResponseServerStart {
+  optional string error_message = 1;
 }
 
 // =====================================================================================================================
@@ -69,6 +71,7 @@ message RequestServerStop {
 }
 
 message ResponseServerStop {
+  optional string error_message = 1;
 }
 
 // =====================================================================================================================
@@ -80,6 +83,7 @@ message RequestWorkerStart {
 }
 
 message ResponseWorkerStart {
+  optional string error_message = 1;
 }
 
 // =====================================================================================================================
@@ -91,6 +95,7 @@ message RequestWorkerStop {
 }
 
 message ResponseWorkerStop {
+  optional string error_message = 1;
 }
 
 // =====================================================================================================================

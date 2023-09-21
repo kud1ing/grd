@@ -14,15 +14,17 @@ See tonic's [dependencies](https://github.com/hyperium/tonic#dependencies)
 
 ## Backlog
 
-* [ ] `app_grid_manager_controller`: read the service library
 * [ ] add tracing to the server: add a member with timestamps of the job per `job_id`
-* [ ] `app_grid_manager`: extend the status with the available service libraries (`LIBRARIES_PATH`)
+* [ ] `app_grid_manager`: extend the status with the available service libraries (`LIBRARIES_PATH`) with creation/modification date
+* [ ] Grid Manager Controller: make it possible to stop all grid servers
+* [ ] Grid Manager Controller: make it possible to stop all grid workers
 * make it possible to remove libraries:
   * [ ] `grid_manager_interface.proto`
   * [ ] `app_grid_manager`
   * [ ] `app_grid_manager_controller`
     * [ ] `client`
 * [ ] Worker: Windows: signal kill from Grid Manager is not handled. Ctrl-C is, though.
+* [ ] Worker: call a service library function to free the result memory
 * [ ] Manager: Mac: vanished processes still show up in status
   * https://github.com/GuillaumeGomez/sysinfo/issues/686
 * [ ] `client_cpp`: create a sync C++ client
