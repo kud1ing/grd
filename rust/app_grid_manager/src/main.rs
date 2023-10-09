@@ -10,14 +10,17 @@ use grid_manager_interface::{
 };
 use lazy_static::lazy_static;
 use std::env::{args, current_exe};
+use std::error::Error;
 use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{exit, Command};
 use std::sync::Mutex;
-use sysinfo::{Pid, PidExt, Process, ProcessExt, System, SystemExt};
+use sysinfo::{Pid, PidExt, Process, ProcessExt, Signal, System, SystemExt};
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
+#[cfg(target_os = "windows")]
+use windows;
 
 lazy_static! {
     // Determine the parent path of the current executable's path.
@@ -115,6 +118,39 @@ fn start_worker(worker_configuration: &WorkerConfiguration) {
     }
 }
 
+///
+#[cfg(target_os = "windows")]
+fn stop_process_gracefully(server_pid: Pid) -> windows::core::Result<bool> {
+    unsafe {
+        windows::Win32::System::Console::FreeConsole()?;
+        windows::Win32::System::Console::AttachConsole(server_pid.as_u32())?;
+        windows::Win32::System::Console::SetConsoleCtrlHandler(None, true)?;
+        windows::Win32::System::Console::GenerateConsoleCtrlEvent(0, 0)?;
+    }
+
+    Ok(false)
+}
+
+#[cfg(not(target_os = "windows"))]
+#[derive(Debug)]
+struct KillError;
+
+///
+#[cfg(not(target_os = "windows"))]
+fn stop_process_gracefully(server_pid: Pid) -> Result<bool, KillError> {
+    let mut system = SYSTEM.lock().unwrap();
+    system.refresh_processes();
+
+    // There is a process with the given PID.
+    if let Some(process) = system.process(server_pid) {
+        // Try to kill the process.
+        process.kill_with(Signal::Interrupt);
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
 // =================================================================================================
 
 /// The grid manager.
@@ -163,7 +199,6 @@ impl GridManager for GridManagerImpl {
                             );
 
                             error!("{}", &error_message);
-
                             return Ok(Response::new(ResponseAcceptServiceLibrary {
                                 error_message: Some(error_message),
                             }));
@@ -176,16 +211,16 @@ impl GridManager for GridManagerImpl {
                     let mut file = File::create(&service_library_path)?;
 
                     // Try to write the service library data.
-                    match file.write_all(&request.service_library_data) {
+                    return match file.write_all(&request.service_library_data) {
                         Ok(_) => {
                             info!(
                                 "Wrote the service library \"{}\"",
                                 service_library_path.display()
                             );
 
-                            return Ok(Response::new(ResponseAcceptServiceLibrary {
+                            Ok(Response::new(ResponseAcceptServiceLibrary {
                                 error_message: None,
-                            }));
+                            }))
                         }
                         Err(error) => {
                             let error_message = format!(
@@ -194,12 +229,11 @@ impl GridManager for GridManagerImpl {
                             );
 
                             error!("{}", &error_message);
-
-                            return Ok(Response::new(ResponseAcceptServiceLibrary {
+                            Ok(Response::new(ResponseAcceptServiceLibrary {
                                 error_message: Some(error_message),
-                            }));
+                            }))
                         }
-                    }
+                    };
                 }
             }
             // The service library path has no parent.
@@ -208,7 +242,6 @@ impl GridManager for GridManagerImpl {
                     "Could not determine the service library directory path".to_string();
 
                 error!("{}", &error_message);
-
                 return Ok(Response::new(ResponseAcceptServiceLibrary {
                     error_message: Some(error_message),
                 }));
@@ -217,7 +250,6 @@ impl GridManager for GridManagerImpl {
             let error_message = "`accept_service_library()`: Unhandled".to_string();
 
             error!("{}", &error_message);
-
             return Ok(Response::new(ResponseAcceptServiceLibrary {
                 error_message: Some(error_message),
             }));
@@ -226,7 +258,6 @@ impl GridManager for GridManagerImpl {
         let error_message = "No service library configuration given".to_string();
 
         error!("{}", &error_message);
-
         Ok(Response::new(ResponseAcceptServiceLibrary {
             error_message: Some(error_message),
         }))
@@ -366,18 +397,20 @@ impl GridManager for GridManagerImpl {
         let mut system = SYSTEM.lock().unwrap();
         system.refresh_processes();
 
-        // There is a process with the given PID.
-        if let Some(server_process) = system.process(server_pid) {
-            // Try to kill the grid server process.
-            server_process.kill();
-            return Ok(Response::new(ResponseServerStop {
+        // Try to stop the server gracefully.
+        match stop_process_gracefully(server_pid) {
+            Ok(_) => Ok(Response::new(ResponseServerStop {
                 error_message: None,
-            }));
-        }
+            })),
+            Err(error) => {
+                let error_message = format!("Error: {:?}", error);
+                error!("{:?}", &error_message);
 
-        Ok(Response::new(ResponseServerStop {
-            error_message: Some("No server process with the given process ID".to_string()),
-        }))
+                Ok(Response::new(ResponseServerStop {
+                    error_message: Some(error_message),
+                }))
+            }
+        }
     }
 
     async fn stop_worker(
@@ -391,18 +424,20 @@ impl GridManager for GridManagerImpl {
         let mut system = SYSTEM.lock().unwrap();
         system.refresh_processes();
 
-        // There is a process with the given PID.
-        if let Some(worker_process) = system.process(worker_pid) {
-            // Try to kill the grid worker process.
-            worker_process.kill();
-            return Ok(Response::new(ResponseWorkerStop {
+        // Try to stop the worker gracefully.
+        match stop_process_gracefully(worker_pid) {
+            Ok(_) => Ok(Response::new(ResponseWorkerStop {
                 error_message: None,
-            }));
-        }
+            })),
+            Err(error) => {
+                let error_message = format!("Error: {:?}", error);
+                error!("{:?}", &error_message);
 
-        Ok(Response::new(ResponseWorkerStop {
-            error_message: Some("No worker process with the given process ID".to_string()),
-        }))
+                Ok(Response::new(ResponseWorkerStop {
+                    error_message: Some(error_message),
+                }))
+            }
+        }
     }
 }
 

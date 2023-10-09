@@ -12,12 +12,18 @@ use grid_server_interface::{
     ResponseToClientRegister, ResponseToClientResultFetch, ResponseToControllerStatusGet,
     ResponseToWorkerExchange, ResponseToWorkerResultSubmit, ServiceId, ServiceVersion,
 };
+use lazy_static::lazy_static;
 use serde_json::json;
 use std::collections::{HashMap, VecDeque};
 use std::env::args;
 use std::process::exit;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use tonic::{transport::Server, Request, Response, Status};
+
+lazy_static! {
+    static ref STOP_SERVER: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+}
 
 /// The grid server.
 pub struct GridServerImpl {
@@ -73,6 +79,12 @@ impl GridServerImpl {
                 job_id
             );
         }
+    }
+
+    ///
+    fn server_was_requested_to_stop(&self) -> bool {
+        // The server was requested to stop.
+        STOP_SERVER.load(Ordering::Relaxed)
     }
 
     ///
@@ -171,6 +183,14 @@ impl GridServer for GridServerImpl {
         // Update the client's last access time.
         self.update_client_last_access_time(client_id);
 
+        // The server was requested to stop.
+        if self.server_was_requested_to_stop() {
+            info!("Server was requested to stop, rejecting new job from client");
+
+            // Do not accept any new jobs.
+            return Ok(Response::new(ResponseToClientJobSubmit { job_id: None }));
+        }
+
         let job_id;
 
         // Get the job ID.
@@ -211,7 +231,9 @@ impl GridServer for GridServerImpl {
         }
 
         // Return the job ID.
-        Ok(Response::new(ResponseToClientJobSubmit { job_id }))
+        Ok(Response::new(ResponseToClientJobSubmit {
+            job_id: Some(job_id),
+        }))
     }
 
     async fn controller_get_status(
@@ -264,6 +286,14 @@ impl GridServer for GridServerImpl {
             // There is a result from the worker.
             if let Some(result_from_worker) = &request.result_from_worker {
                 self.add_result(result_from_worker);
+            }
+
+            // The server was requested to stop.
+            if self.server_was_requested_to_stop() {
+                info!("Server was requested to stop, not passing jobs to worker");
+
+                // Do not pass a jobs to workers.
+                return Ok(Response::new(ResponseToWorkerExchange { job: None }));
             }
 
             // Try to get jobs for the given request.
@@ -331,6 +361,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let socket_address = command_line_arguments[1].parse()?;
 
     info!("Running the server on \"{}\" ...", socket_address);
+
+    // Register a signal handler.
+    let _ = signal_hook::flag::register(libc::SIGINT, Arc::clone(&STOP_SERVER));
 
     Server::builder()
         .add_service(GridServerServer::new(GridServerImpl::new()))

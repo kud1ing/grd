@@ -7,8 +7,8 @@ edition = "2021"
 env_logger = { workspace = true }
 grid_client = { path= "../lib_grid_client" }
 grid_server_interface = { path= "../lib_interface_grid_server" }
-libc = "0.2.147"
+libc = { workspace = true }
 libloading = "0.8.0"
 log = { workspace = true }
-signal-hook = "0.3.17"
+signal-hook = { workspace = true }
 tokio = { workspace = true }

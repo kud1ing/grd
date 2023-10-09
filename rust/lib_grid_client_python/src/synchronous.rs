@@ -46,7 +46,7 @@ impl SyncGridClient {
         service_id: ServiceId,
         service_version: ServiceVersion,
         job_data: Vec<u8>,
-    ) -> PyResult<JobId> {
+    ) -> PyResult<Option<JobId>> {
         match self
             .sync_grid_client
             .client_submit_job(service_id, service_version, job_data)

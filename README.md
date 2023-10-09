@@ -14,10 +14,11 @@ See tonic's [dependencies](https://github.com/hyperium/tonic#dependencies)
 
 ## Backlog
 
-* [ ] add tracing to the server: add a member with timestamps of the job per `job_id`
 * [ ] `app_grid_manager`: extend the status with the available service libraries (`LIBRARIES_PATH`) with creation/modification date
+* [ ] add tracing to the server: add a member with timestamps of the job per `job_id`
 * [ ] Grid Config: make it possible to stop all grid servers
 * [ ] Grid Config: make it possible to stop all grid workers
+* [ ] Service Client: use a Thread Pool https://docs.rs/rayon/1.8.0/rayon/struct.ThreadPool.html
 * make it possible to remove libraries:
   * [ ] `grid_manager_interface.proto`
   * [ ] `app_grid_manager`

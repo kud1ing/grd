@@ -106,7 +106,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let server_pid = command_line_arguments[3].parse()?;
 
-            let _ = manager_client.stop_server(server_pid).await?;
+            let response = manager_client.stop_server(server_pid).await?;
+            let response = response.get_ref();
+
+            if let Some(error_message) = &response.error_message {
+                eprintln!("Error from grid manager: {}", error_message);
+            }
         }
         "stop-worker" => {
             // Too few command line arguments are given.

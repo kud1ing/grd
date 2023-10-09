@@ -17,8 +17,10 @@ members = [
 chrono = "0.4.31"
 env_logger = "0.10.0"
 lazy_static = "^1"
+libc = "0.2.147"
 log = "0.4.19"
 prost = "0.12.1"
 serde_json = "1.0"
+signal-hook = "0.3.17"
 tokio = { version = "1.18", features = ["macros", "rt-multi-thread"] }
 tonic = "0.10.0"

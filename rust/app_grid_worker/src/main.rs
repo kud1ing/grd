@@ -66,13 +66,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // A flag that indicates whether to stop the grid worker.
     let stop_worker = Arc::new(AtomicBool::new(false));
 
-    // Register signal handlers.
+    // Register a signal handler.
     let _ = signal_hook::flag::register(libc::SIGINT, Arc::clone(&stop_worker));
 
     let mut result: Option<grid_server_interface::Result> = None;
 
     loop {
-        // Requested to stop the grid worker.
+        // The grid worker was requested to be stopped.
         if stop_worker.load(Ordering::Relaxed) {
             info!("Got signal to stop");
             exit(0);
