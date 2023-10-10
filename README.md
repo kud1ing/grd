@@ -14,6 +14,7 @@ See tonic's [dependencies](https://github.com/hyperium/tonic#dependencies)
 
 ## Backlog
 
+* [ ] Grid Manager: Stop worker does not work on Windows 
 * [ ] `app_grid_manager`: extend the status with the available service libraries (`LIBRARIES_PATH`) with creation/modification date
 * [ ] add tracing to the server: add a member with timestamps of the job per `job_id`
 * [ ] Grid Config: make it possible to stop all grid servers

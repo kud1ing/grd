@@ -171,8 +171,11 @@ impl GridManager for GridManagerImpl {
         request: Request<RequestAcceptServiceLibrary>,
     ) -> Result<Response<ResponseAcceptServiceLibrary>, Status> {
         let request = request.get_ref();
-        // TODO handle `request.client_id`?
 
+        info!(
+            "Got request from client {} to accept a service library",
+            request.client_id
+        );
         if let Some(service_library_configuration) = &request.service_library_configuration {
             // Determine the service library path.
             let service_library_path = service_library_path(
@@ -265,9 +268,14 @@ impl GridManager for GridManagerImpl {
 
     async fn get_status(
         &self,
-        _request: Request<RequestGetStatus>,
+        request: Request<RequestGetStatus>,
     ) -> Result<Response<ResponseGetStatus>, Status> {
-        // TODO handle `request.client_id`?
+        let request = request.get_ref();
+
+        info!(
+            "Got request from client {} to get the grid status",
+            request.client_id
+        );
 
         let mut system = SYSTEM.lock().unwrap();
         system.refresh_processes();
@@ -349,7 +357,11 @@ impl GridManager for GridManagerImpl {
         request: Request<RequestServerStart>,
     ) -> Result<Response<ResponseServerStart>, Status> {
         let request = request.get_ref();
-        // TODO handle `request.client_id`?
+
+        info!(
+            "Got request from client {} to start a grid server",
+            request.client_id
+        );
 
         // A server configuration is given.
         if let Some(server_configuration) = &request.server_configuration {
@@ -370,7 +382,11 @@ impl GridManager for GridManagerImpl {
         request: Request<RequestWorkerStart>,
     ) -> Result<Response<ResponseWorkerStart>, Status> {
         let request = request.get_ref();
-        // TODO handle `request.client_id`?
+
+        info!(
+            "Got request from client {} to start a grid worker",
+            request.client_id
+        );
 
         // A worker configuration is given.
         if let Some(worker_configuration) = &request.worker_configuration {
@@ -391,8 +407,12 @@ impl GridManager for GridManagerImpl {
         request: Request<RequestServerStop>,
     ) -> Result<Response<ResponseServerStop>, Status> {
         let request = request.get_ref();
-        // TODO handle `request.client_id`?
         let server_pid = pid_from_u64(request.server_pid);
+
+        info!(
+            "Got request from client {} to stop a grid server {}",
+            request.client_id, server_pid
+        );
 
         let mut system = SYSTEM.lock().unwrap();
         system.refresh_processes();
@@ -418,8 +438,12 @@ impl GridManager for GridManagerImpl {
         request: Request<RequestWorkerStop>,
     ) -> Result<Response<ResponseWorkerStop>, Status> {
         let request = request.get_ref();
-        // TODO handle `request.client_id`?
         let worker_pid = pid_from_u64(request.worker_pid);
+
+        info!(
+            "Got request from client {} to stop a grid worker {}",
+            request.client_id, worker_pid
+        );
 
         let mut system = SYSTEM.lock().unwrap();
         system.refresh_processes();
